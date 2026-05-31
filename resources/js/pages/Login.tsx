@@ -40,9 +40,9 @@ export default function Login() {
           <input className="pn-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
           <input className="pn-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Пароль" required />
           <button className="pn-button is-dark" disabled={isSubmitting}>{isSubmitting ? 'Входим...' : 'Войти'}</button>
+          {message && <p className="pn-message is-error">{message}</p>}
           <button type="button" className="auth-link" onClick={() => router.visit('/forgot-password')}>Забыли пароль?</button>
           <button type="button" className="auth-link" onClick={() => router.visit('/register')}>Создать аккаунт</button>
-          {message && <p className="pn-text">{message}</p>}
         </form>
       </section>
     </AppShell>

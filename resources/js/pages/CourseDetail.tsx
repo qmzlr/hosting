@@ -23,6 +23,7 @@ export default function CourseDetail({
   const [commentItems] = useState(comments)
   const [commentText, setCommentText] = useState('')
   const [commentMessage, setCommentMessage] = useState('')
+  const [commentMessageTone, setCommentMessageTone] = useState<'error' | 'success'>('success')
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
   const related = relatedCourses.filter((item) => item.instrument === course.instrument || item.level === course.level).slice(0, 3)
   const fallbackRelated = relatedCourses.slice(0, 3)
@@ -64,8 +65,10 @@ export default function CourseDetail({
         targetCode: course.id,
       })
       setCommentText('')
+      setCommentMessageTone('success')
       setCommentMessage('Комментарий отправлен на модерацию.')
     } catch (error) {
+      setCommentMessageTone('error')
       setCommentMessage(error instanceof Error ? error.message : 'Не удалось отправить комментарий.')
     } finally {
       setIsCommentSubmitting(false)
@@ -117,7 +120,7 @@ export default function CourseDetail({
                     <p>{comment.text}</p>
                   </article>
                 ))}
-                {commentItems.length === 0 && <p className="pn-text">Пока нет одобренных комментариев.</p>}
+                {commentItems.length === 0 && <p className="pn-text comments-empty">Пока нет одобренных комментариев.</p>}
               </div>
               {canComment ? (
                 <form className="comment-form" onSubmit={submitComment}>
@@ -135,7 +138,7 @@ export default function CourseDetail({
               ) : (
                 <p className="pn-text course-comment-note">Комментарии доступны ученикам, которые записались на курс.</p>
               )}
-              {commentMessage && <p className="pn-text">{commentMessage}</p>}
+              {commentMessage && <p className={`pn-message is-${commentMessageTone}`}>{commentMessage}</p>}
             </section>
           </div>
           <aside className="course-aside">
@@ -147,7 +150,7 @@ export default function CourseDetail({
               <button className="pn-button is-dark" disabled={!firstLesson || isStarting} onClick={startCourse}>
                 {!isAuthenticated ? 'Войти, чтобы начать курс' : isStarting ? 'Открываем курс...' : course.progress > 0 ? 'Продолжить обучение' : 'Начать курс'}
               </button>
-              {message && <p className="pn-text">{message}</p>}
+              {message && <p className="pn-message is-error">{message}</p>}
             </div>
           </aside>
         </div>

@@ -18,6 +18,7 @@ export default function CommunityVideo({
   const [items] = useState(comments)
   const [text, setText] = useState('')
   const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState<'error' | 'success'>('success')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const submit = async (event: React.FormEvent) => {
@@ -38,8 +39,10 @@ export default function CommunityVideo({
         targetCode: numericId(video.id),
       })
       setText('')
+      setMessageTone('success')
       setMessage('Комментарий отправлен на модерацию.')
     } catch (error) {
+      setMessageTone('error')
       setMessage(error instanceof Error ? error.message : 'Не удалось отправить комментарий.')
     } finally {
       setIsSubmitting(false)
@@ -81,7 +84,7 @@ export default function CommunityVideo({
                     <p>{comment.text}</p>
                   </article>
                 ))}
-                {items.length === 0 && <p className="pn-text">Пока нет одобренных комментариев.</p>}
+                {items.length === 0 && <p className="pn-text comments-empty">Пока нет одобренных комментариев.</p>}
               </div>
               {canComment ? (
                 <form className="comment-form" onSubmit={submit}>
@@ -91,7 +94,7 @@ export default function CommunityVideo({
               ) : (
                 <button className="pn-button is-dark" onClick={() => router.visit('/login')}>Войти, чтобы комментировать</button>
               )}
-              {message && <p className="pn-text">{message}</p>}
+              {message && <p className={`pn-message is-${messageTone}`}>{message}</p>}
             </article>
           </aside>
         </div>

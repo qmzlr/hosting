@@ -7,6 +7,7 @@ import { postFormData, postJson } from '@/lib/http'
 
 export default function Register({ instruments }: { instruments: Instrument[] }) {
   const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState<'error' | 'info' | 'success'>('info')
   const [accountType, setAccountType] = useState<'student' | 'teacher'>('student')
   const [agreed, setAgreed] = useState(false)
   const [name, setName] = useState('')
@@ -46,6 +47,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
           onSubmit={async (e) => {
             e.preventDefault()
             if (!agreed) {
+              setMessageTone('error')
               setMessage('Подтвердите согласие на обработку персональных данных.')
               return
             }
@@ -55,6 +57,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
 
             try {
               if (password !== passwordConfirmation) {
+                setMessageTone('error')
                 setMessage('Пароли не совпадают.')
                 return
               }
@@ -62,6 +65,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
               if (!isCodeSent) {
                 await postJson('/register/email-code', { email })
                 setIsCodeSent(true)
+                setMessageTone('info')
                 setMessage('Код подтверждения отправлен на почту. Введите его, чтобы завершить регистрацию.')
                 return
               }
@@ -85,6 +89,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
               await postFormData('/register', body)
               router.visit(accountType === 'teacher' ? '/teacher' : '/profile')
             } catch (error) {
+              setMessageTone('error')
               setMessage(error instanceof Error ? error.message : 'Не удалось создать аккаунт.')
             } finally {
               setIsSubmitting(false)
@@ -212,8 +217,10 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                   setMessage('')
                   try {
                     await postJson('/register/email-code', { email })
+                    setMessageTone('success')
                     setMessage('Новый код подтверждения отправлен на почту.')
                   } catch (error) {
+                    setMessageTone('error')
                     setMessage(error instanceof Error ? error.message : 'Не удалось отправить код.')
                   } finally {
                     setIsSubmitting(false)
@@ -237,7 +244,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
             </div>
           )}
           <button type="button" className="auth-link" onClick={() => router.visit('/login')}>Уже есть аккаунт?</button>
-          {message && <p className="pn-text">{message}</p>}
+          {message && <p className={`pn-message is-${messageTone}`}>{message}</p>}
         </form>
       </section>
     </AppShell>

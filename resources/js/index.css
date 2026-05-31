@@ -670,6 +670,38 @@
     line-height: 1.65;
   }
 
+  .pn-message {
+    margin: 0;
+    padding: 13px 15px;
+    border: 1px solid rgba(0,0,0,0.18);
+    border-left-width: 4px;
+    background: #fff;
+    color: #222;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .pn-message.is-error {
+    border-color: rgba(133, 24, 24, 0.28);
+    border-left-color: #8f1d1d;
+    background: #fff5f3;
+    color: #671616;
+  }
+
+  .pn-message.is-success {
+    border-color: rgba(25, 105, 68, 0.24);
+    border-left-color: #196944;
+    background: #f3fbf6;
+    color: #154d35;
+  }
+
+  .pn-message.is-info {
+    border-color: rgba(6, 29, 51, 0.22);
+    border-left-color: #061d33;
+    background: #f3f6f8;
+    color: #061d33;
+  }
+
   .pn-button {
     display: inline-flex;
     align-items: center;
@@ -1056,6 +1088,18 @@
     display: grid;
     gap: 12px;
     margin-top: 18px;
+  }
+
+  .comments-empty {
+    margin: 0 0 8px;
+  }
+
+  .comments-list + .pn-button {
+    margin-top: 18px;
+  }
+
+  .comment-form + .pn-message {
+    margin-top: 14px;
   }
 
   .comment-form .pn-button {

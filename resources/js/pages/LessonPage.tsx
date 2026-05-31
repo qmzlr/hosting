@@ -24,6 +24,7 @@ export default function LessonPage({
   const [commentItems] = useState(comments)
   const [commentText, setCommentText] = useState('')
   const [commentMessage, setCommentMessage] = useState('')
+  const [commentMessageTone, setCommentMessageTone] = useState<'error' | 'success'>('success')
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false)
   const currentIndex = Math.max(0, courseState.lessonList.findIndex((lesson) => lesson.id === lessonId))
   const lesson = courseState.lessonList[currentIndex] ?? courseState.lessonList[0]
@@ -78,8 +79,10 @@ export default function LessonPage({
         targetCode: lesson.id,
       })
       setCommentText('')
+      setCommentMessageTone('success')
       setCommentMessage('Комментарий отправлен на модерацию.')
     } catch (error) {
+      setCommentMessageTone('error')
       setCommentMessage(error instanceof Error ? error.message : 'Не удалось отправить комментарий.')
     } finally {
       setIsCommentSubmitting(false)
@@ -108,7 +111,7 @@ export default function LessonPage({
               Следующий →
             </button>
           </div>
-          {message && <p className="pn-text">{message}</p>}
+          {message && <p className="pn-message is-error">{message}</p>}
           <SectionTitle title={lesson.title} aside={courseState.title} />
           <p className="pn-text">{lesson.description}</p>
           <div className="comments-list">
@@ -119,7 +122,7 @@ export default function LessonPage({
                 <p>{comment.text}</p>
               </article>
             ))}
-            {commentItems.length === 0 && <p className="pn-text">Пока нет одобренных комментариев.</p>}
+            {commentItems.length === 0 && <p className="pn-text comments-empty">Пока нет одобренных комментариев.</p>}
             {canLeaveComment ? (
               <form className="comment-form" onSubmit={submitComment}>
                 <textarea
@@ -136,7 +139,7 @@ export default function LessonPage({
             ) : (
               <p className="pn-text">Комментарий можно оставить после завершения урока.</p>
             )}
-            {commentMessage && <p className="pn-text">{commentMessage}</p>}
+            {commentMessage && <p className={`pn-message is-${commentMessageTone}`}>{commentMessage}</p>}
           </div>
         </div>
         <aside className="lesson-sidebar">

@@ -11,6 +11,7 @@ export default function ForgotPassword() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState<'error' | 'success'>('success')
 
   const handleSendCode = async () => {
     setIsSubmitting(true)
@@ -19,8 +20,10 @@ export default function ForgotPassword() {
     try {
       await postJson('/password/email-code', { email })
       setIsCodeSent(true)
+      setMessageTone('success')
       setMessage('Код восстановления отправлен на вашу почту.')
     } catch (error) {
+      setMessageTone('error')
       setMessage(error instanceof Error ? error.message : 'Не удалось отправить код.')
     } finally {
       setIsSubmitting(false)
@@ -40,6 +43,7 @@ export default function ForgotPassword() {
       })
       router.visit('/profile')
     } catch (error) {
+      setMessageTone('error')
       setMessage(error instanceof Error ? error.message : 'Не удалось обновить пароль.')
     } finally {
       setIsSubmitting(false)
@@ -121,7 +125,7 @@ export default function ForgotPassword() {
           <button type="button" className="auth-link" onClick={() => router.visit('/login')}>
             Вернуться ко входу
           </button>
-          {message && <p className="pn-text">{message}</p>}
+          {message && <p className={`pn-message is-${messageTone}`}>{message}</p>}
         </form>
       </section>
     </AppShell>
