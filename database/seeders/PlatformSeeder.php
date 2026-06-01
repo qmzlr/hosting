@@ -32,10 +32,14 @@ class PlatformSeeder extends Seeder
         }
 
         $instrumentIdsByName = Instrument::query()->pluck('id', 'name');
+        $teacherId = \App\Models\User::query()
+            ->where('email', 'teacher@example.com')
+            ->value('id');
 
         $courses = [
             [
                 'code' => '01',
+                'user_id' => $teacherId,
                 'title' => 'Основы гитары',
                 'author' => 'Антон Лебедев',
                 'category' => 'Основы',

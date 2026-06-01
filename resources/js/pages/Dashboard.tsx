@@ -30,6 +30,9 @@ export default function Dashboard({
   const [email, setEmail] = useState(user?.email ?? '')
   const [emailVerificationCode, setEmailVerificationCode] = useState('')
   const [isEmailCodeSent, setIsEmailCodeSent] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [level, setLevel] = useState(user?.level ?? 'Начинающий')
   const [avatar, setAvatar] = useState(user?.avatar ?? '')
   const [selectedIds, setSelectedIds] = useState(() => new Set(selectedInstruments.map((item) => item.id)))
@@ -58,6 +61,7 @@ export default function Dashboard({
   const normalizedProfileEmail = (user?.email ?? '').trim().toLowerCase()
   const normalizedEmail = email.trim().toLowerCase()
   const isEmailChanged = normalizedEmail !== normalizedProfileEmail
+  const isPasswordChangeRequested = currentPassword.length > 0 || newPassword.length > 0 || passwordConfirmation.length > 0
 
   const toggleInstrument = (id: string) => {
     setSelectedIds((current) => {
@@ -103,6 +107,11 @@ export default function Dashboard({
     setMessage('')
 
     try {
+      if (isPasswordChangeRequested && newPassword !== passwordConfirmation) {
+        setMessage('Новые пароли не совпадают.')
+        return
+      }
+
       if (isEmailChanged && !isEmailCodeSent) {
         await postJson<{ success: boolean; message?: string }>('/api/profile/email-code', { email })
         setIsEmailCodeSent(true)
@@ -117,11 +126,19 @@ export default function Dashboard({
         level,
         avatar,
         instrumentIds: Array.from(selectedIds),
+        ...(isPasswordChangeRequested ? {
+          currentPassword,
+          password: newPassword,
+          password_confirmation: passwordConfirmation,
+        } : {}),
       })
       setProfileInstruments(response.instruments)
       setMessage('Профиль обновлён.')
       setEmailVerificationCode('')
       setIsEmailCodeSent(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setPasswordConfirmation('')
       refresh()
       router.reload({ only: ['recommendations', 'selectedInstruments'] })
       setIsProfileDialogOpen(false)
@@ -310,6 +327,44 @@ export default function Dashboard({
                 <em>Код отправлен на {email}. Введите его, чтобы сохранить новый email.</em>
               </FieldLabel>
             )}
+            <div className="profile-password-fields">
+              <div>
+                <div className="pn-meta">Смена пароля</div>
+                <p className="pn-text">Заполните эти поля только если хотите обновить пароль.</p>
+              </div>
+              <FieldLabel label="Текущий пароль">
+                <input
+                  className="pn-input"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required={isPasswordChangeRequested}
+                />
+              </FieldLabel>
+              <FieldLabel label="Новый пароль">
+                <input
+                  className="pn-input"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  autoComplete="new-password"
+                  minLength={6}
+                  required={isPasswordChangeRequested}
+                />
+              </FieldLabel>
+              <FieldLabel label="Повторите новый пароль">
+                <input
+                  className="pn-input"
+                  type="password"
+                  value={passwordConfirmation}
+                  onChange={(event) => setPasswordConfirmation(event.target.value)}
+                  autoComplete="new-password"
+                  minLength={6}
+                  required={isPasswordChangeRequested}
+                />
+              </FieldLabel>
+            </div>
             <FieldLabel label="Фото профиля">
               <label className="profile-file-control">
                 <span>{isAvatarUploading ? 'Загружаем фото...' : avatar ? 'Фото прикреплено' : 'Прикрепить фото профиля'}</span>

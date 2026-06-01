@@ -19,7 +19,8 @@ export default function CoursesCatalog({ courses }: { courses: Course[] }) {
 
   const filtered = useMemo(() => {
     return courses.filter((course) => {
-      const matchesQuery = `${course.title} ${course.author} ${course.instrument} ${course.shortDescription}`.toLowerCase().includes(query.toLowerCase())
+      const author = course.owner?.name || course.owner?.email || course.author
+      const matchesQuery = `${course.title} ${author} ${course.instrument} ${course.shortDescription}`.toLowerCase().includes(query.toLowerCase())
       const matchesInstrument = instrument === all || course.instrument === instrument
       const matchesLevel = level === all || course.level === level
       const matchesCategory = category === all || course.category === category

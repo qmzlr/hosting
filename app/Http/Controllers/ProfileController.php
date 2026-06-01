@@ -67,6 +67,8 @@ class ProfileController extends Controller
             'avatar' => ['nullable', 'string', 'max:1024'],
             'level' => ['nullable', 'string', 'max:64'],
             'emailVerificationCode' => ['nullable', 'string', 'size:6'],
+            'currentPassword' => ['nullable', 'string'],
+            'password' => ['nullable', 'string', 'min:6', 'confirmed'],
             'instrumentIds' => ['sometimes', 'array'],
             'instrumentIds.*' => ['string', 'exists:instruments,slug'],
         ]);
@@ -75,6 +77,8 @@ class ProfileController extends Controller
         unset($validated['instrumentIds']);
         $emailVerificationCode = $validated['emailVerificationCode'] ?? null;
         unset($validated['emailVerificationCode']);
+        $currentPassword = $validated['currentPassword'] ?? null;
+        unset($validated['currentPassword']);
 
         if (array_key_exists('email', $validated)) {
             $validated['email'] = $this->normalizeEmail((string) $validated['email']);
@@ -89,6 +93,18 @@ class ProfileController extends Controller
 
                 $this->verifyCode($validated['email'], 'email_change', $emailVerificationCode);
             }
+        }
+
+        if (! empty($validated['password'])) {
+            if (! $currentPassword || ! $user->password || ! Hash::check($currentPassword, $user->password)) {
+                throw ValidationException::withMessages([
+                    'currentPassword' => 'Введите текущий пароль правильно.',
+                ]);
+            }
+
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
         }
 
         if ($instrumentIds !== null) {
