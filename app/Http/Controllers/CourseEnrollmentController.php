@@ -16,7 +16,7 @@ class CourseEnrollmentController extends Controller
 
         $course = Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('code', $courseCode)
+            ->where('code', Course::resolveCode($courseCode))
             ->publiclyVisible()
             ->firstOrFail();
 

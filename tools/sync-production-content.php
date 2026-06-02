@@ -6,6 +6,7 @@ use App\Models\Lesson;
 use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -51,32 +52,44 @@ $teachersByName = collect([
 });
 
 $courseTeachers = [
-    '01' => 'Антон Лебедев',
-    '02' => 'Мария Соколова',
-    '03' => 'Денис Орлов',
-    '04' => 'Елена Миронова',
-    '05' => 'Кира Волкова',
-    '06' => 'Илья Ветров',
+    ['legacy' => '01', 'code' => 'osnovy-gitary', 'teacher' => 'Антон Лебедев'],
+    ['legacy' => '02', 'code' => 'start-na-fortepiano', 'teacher' => 'Мария Соколова'],
+    ['legacy' => '03', 'code' => 'praktika-na-udarnyh', 'teacher' => 'Денис Орлов'],
+    ['legacy' => '04', 'code' => 'trenirovka-vokala', 'teacher' => 'Елена Миронова'],
+    ['legacy' => '05', 'code' => 'kurs-ukulele', 'teacher' => 'Кира Волкова'],
+    ['legacy' => '06', 'code' => 'muzykalnaya-teoriya', 'teacher' => 'Илья Ветров'],
 ];
 
-foreach ($courseTeachers as $code => $teacherName) {
-    $teacher = $teachersByName[$teacherName] ?? null;
-    $course = Course::query()->with('lessonList')->where('code', $code)->first();
+foreach ($courseTeachers as $courseIndex => $courseData) {
+    $teacher = $teachersByName[$courseData['teacher']] ?? null;
+    $course = Course::query()
+        ->with('lessonList')
+        ->whereIn('code', [$courseData['legacy'], $courseData['code']])
+        ->first();
 
     if (! $course || ! $teacher) {
         continue;
     }
 
     $course->update([
+        'code' => $courseData['code'],
         'user_id' => $teacher->id,
         'author' => $teacher->name,
     ]);
 
     foreach ($course->lessonList as $index => $lesson) {
         $lesson->update([
-            'video' => $lessonVideos[(($index + (((int) $course->code - 1) * 2)) % count($lessonVideos))],
+            'code' => 'course-'.$courseData['code'].'-'.($index + 1),
+            'video' => $lessonVideos[(($index + ($courseIndex * 2)) % count($lessonVideos))],
         ]);
     }
+}
+
+foreach ($courseTeachers as $courseData) {
+    DB::table('platform_comments')
+        ->where('target_type', 'course')
+        ->where('target_code', $courseData['legacy'])
+        ->update(['target_code' => $courseData['code']]);
 }
 
 UserVideo::query()

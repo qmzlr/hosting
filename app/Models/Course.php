@@ -10,6 +10,15 @@ use Illuminate\Support\Collection;
 
 class Course extends Model
 {
+    public const LEGACY_CODE_MAP = [
+        '01' => 'osnovy-gitary',
+        '02' => 'start-na-fortepiano',
+        '03' => 'praktika-na-udarnyh',
+        '04' => 'trenirovka-vokala',
+        '05' => 'kurs-ukulele',
+        '06' => 'muzykalnaya-teoriya',
+    ];
+
     protected $fillable = [
         'code',
         'user_id',
@@ -75,6 +84,11 @@ class Course extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(PlatformComment::class);
+    }
+
+    public static function resolveCode(string $code): string
+    {
+        return self::LEGACY_CODE_MAP[$code] ?? $code;
     }
 
     public function scopePubliclyVisible(Builder $query): Builder

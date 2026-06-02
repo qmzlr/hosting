@@ -16,8 +16,8 @@ class PlatformController extends Controller
         $userId = $request->session()->get('user_id');
 
         $courses = Course::query()
-            ->with('lessonList')
-            ->where('status', 'опубликовано')
+            ->with(['lessonList', 'owner'])
+            ->publiclyVisible()
             ->orderBy('code')
             ->get()
             ->map(fn (Course $course) => $course->toFrontend(true, $userId));
@@ -28,12 +28,21 @@ class PlatformController extends Controller
             ->map(fn (Instrument $instrument) => $instrument->toFrontend());
 
         $userVideos = UserVideo::query()
+            ->where('status', 'опубликовано')
             ->latest()
             ->get()
             ->map(fn (UserVideo $video) => $video->toFrontend());
 
         $comments = PlatformComment::query()
             ->with(['course', 'lesson.course', 'video'])
+            ->where('status', 'одобрено')
+            ->where(function ($query): void {
+                $query
+                    ->where('target_type', 'platform')
+                    ->orWhereHas('course', fn ($course) => $course->publiclyVisible())
+                    ->orWhereHas('lesson.course', fn ($course) => $course->publiclyVisible())
+                    ->orWhereHas('video', fn ($video) => $video->where('status', 'опубликовано'));
+            })
             ->latest()
             ->get()
             ->map(fn (PlatformComment $comment) => $comment->toFrontend());

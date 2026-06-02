@@ -37,7 +37,7 @@ class ModerationController extends Controller
 
         $course = Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('code', $code)
+            ->where('code', Course::resolveCode($code))
             ->firstOrFail();
 
         $course->update(['status' => $validated['status']]);

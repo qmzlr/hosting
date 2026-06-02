@@ -36,7 +36,7 @@ class PlatformPageController extends Controller
         $user = $this->user($request);
         $course = Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('code', $courseId)
+            ->where('code', Course::resolveCode($courseId))
             ->firstOrFail();
 
         abort_if(! $this->canViewCourse($course, $user), 404, 'Курс не найден.');
@@ -63,7 +63,7 @@ class PlatformPageController extends Controller
         $user = $this->user($request);
         $course = Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('code', $courseId)
+            ->where('code', Course::resolveCode($courseId))
             ->firstOrFail();
 
         abort_if(! $this->canViewCourse($course, $user), 404, 'Курс не найден.');
@@ -132,6 +132,7 @@ class PlatformPageController extends Controller
         return Inertia::render('MyVideos', [
             'instruments' => $this->instrumentsForFrontend(),
             'userVideos' => UserVideo::query()
+                ->where('status', 'опубликовано')
                 ->with('user')
                 ->latest()
                 ->get()
@@ -253,7 +254,7 @@ class PlatformPageController extends Controller
         abort_if(! $user, 403, 'Нужно войти в аккаунт.');
 
         $course = $courseId
-            ? Course::query()->with(['lessonList', 'owner'])->where('code', $courseId)->firstOrFail()
+            ? Course::query()->with(['lessonList', 'owner'])->where('code', Course::resolveCode($courseId))->firstOrFail()
             : null;
 
         if ($user->role === 'teacher') {

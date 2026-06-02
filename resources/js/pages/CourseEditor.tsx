@@ -47,6 +47,19 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  const updateTitle = (value: string) => {
+    setForm((current) => {
+      const currentTitleSlug = courseSlug(current.title)
+      const shouldSyncSlug = !isEditing && (!current.id || current.id === currentTitleSlug)
+
+      return {
+        ...current,
+        title: value,
+        id: shouldSyncSlug ? courseSlug(value) : current.id,
+      }
+    })
+  }
+
   const updateLines = (field: 'description' | 'features' | 'outcomes', value: string) => {
     setForm((current) => ({ ...current, [field]: value.split('\n') }))
   }
@@ -136,7 +149,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
 
     const payload = {
       ...form,
-      id: form.id.trim(),
+      id: courseSlug(form.id || form.title),
       description: lines(form.description),
       features: lines(form.features),
       outcomes: lines(form.outcomes),
@@ -158,7 +171,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
       setMessage('Курс сохранён.')
       toast.success('Курс сохранён.')
 
-      if (!isEditing) {
+      if (!isEditing || response.course.id !== course?.id) {
         router.visit(`${basePath}/${response.course.id}/edit`)
       }
     } catch (error) {
@@ -183,19 +196,16 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
             <button type="button" className="pn-button" onClick={() => router.visit(backUrl)}>Назад</button>
           </div>
           <SectionTitle title="Данные курса" aside="Форма" />
-          {isEditing ? (
-            <div className="readonly-field">
-              <span>Код курса для ссылки</span>
-              <strong>{form.id}</strong>
-              <em>Используется в адресе курса. Например: /courses/{form.id || '01'}</em>
-            </div>
-          ) : (
-            <FieldLabel label="Код курса для ссылки">
-              <input className="pn-input" value={form.id} onChange={(e) => update('id', e.target.value)} required />
-              <em>Используется в адресе курса. Например: /courses/{form.id || '01'}</em>
-            </FieldLabel>
-          )}
-          <FieldLabel label="Название"><input className="pn-input" value={form.title} onChange={(e) => update('title', e.target.value)} required /></FieldLabel>
+          <FieldLabel label="Код курса для ссылки">
+            <input
+              className="pn-input"
+              value={form.id}
+              onChange={(e) => update('id', courseSlug(e.target.value))}
+              placeholder="osnovy-gitary"
+            />
+            <em>Используется в адресе курса. Например: /courses/{form.id || 'osnovy-gitary'}</em>
+          </FieldLabel>
+          <FieldLabel label="Название"><input className="pn-input" value={form.title} onChange={(e) => updateTitle(e.target.value)} required /></FieldLabel>
           <FieldLabel label="Автор"><input className="pn-input" value={form.author} onChange={(e) => update('author', e.target.value)} required /></FieldLabel>
           <FieldLabel label="Категория">
             <select className="pn-select" value={form.category} onChange={(e) => update('category', e.target.value)} required>
@@ -289,7 +299,30 @@ function newLesson(): Lesson {
 }
 
 function lessonCode(courseId: string, index: number) {
-  return `course-${courseId || 'new'}-${index + 1}`
+  return `course-${courseSlug(courseId) || 'new'}-${index + 1}`
+}
+
+function courseSlug(value: string) {
+  const map: Record<string, string> = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh',
+    з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o',
+    п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c',
+    ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu',
+    я: 'ya',
+  }
+
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .split('')
+    .map((char) => map[char] ?? char)
+    .join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64)
+    .replace(/-+$/g, '')
+
+  return slug
 }
 
 function readVideoDuration(file: File): Promise<string | null> {

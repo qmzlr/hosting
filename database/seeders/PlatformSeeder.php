@@ -70,7 +70,8 @@ class PlatformSeeder extends Seeder
 
         $courses = [
             [
-                'code' => '01',
+                'legacy_code' => '01',
+                'code' => 'osnovy-gitary',
                 'title' => 'Основы гитары',
                 'author' => 'Антон Лебедев',
                 'category' => 'Основы',
@@ -94,7 +95,8 @@ class PlatformSeeder extends Seeder
                 'lesson_titles' => ['Посадка и настройка', 'Первые аккорды', 'Смена аккордов', 'Ритмический бой', 'Перебор и динамика', 'Игра под метроном', 'Разбор куплета', 'Первая песня целиком'],
             ],
             [
-                'code' => '02',
+                'legacy_code' => '02',
+                'code' => 'start-na-fortepiano',
                 'title' => 'Старт на фортепиано',
                 'author' => 'Мария Соколова',
                 'category' => 'Основы',
@@ -115,7 +117,8 @@ class PlatformSeeder extends Seeder
                 'lesson_titles' => ['Посадка за инструментом', 'Первые клавиши', 'Нотная ориентация', 'Ритм двумя руками', 'Простая гармония', 'Мини-репертуар'],
             ],
             [
-                'code' => '03',
+                'legacy_code' => '03',
+                'code' => 'praktika-na-udarnyh',
                 'title' => 'Практика на ударных',
                 'author' => 'Денис Орлов',
                 'category' => 'Ритм',
@@ -136,7 +139,8 @@ class PlatformSeeder extends Seeder
                 'lesson_titles' => ['Работа рук', 'Первый beat', 'Ноги и координация', 'Акценты хай-хэта', 'Fills', 'Переходы между частями', 'Игра под минус'],
             ],
             [
-                'code' => '04',
+                'legacy_code' => '04',
+                'code' => 'trenirovka-vokala',
                 'title' => 'Тренировка вокала',
                 'author' => 'Елена Миронова',
                 'category' => 'Техника',
@@ -157,7 +161,8 @@ class PlatformSeeder extends Seeder
                 'lesson_titles' => ['Дыхание', 'Разминка', 'Резонаторы', 'Чистая интонация', 'Запись голоса'],
             ],
             [
-                'code' => '05',
+                'legacy_code' => '05',
+                'code' => 'kurs-ukulele',
                 'title' => 'Курс укулеле',
                 'author' => 'Кира Волкова',
                 'category' => 'Песни',
@@ -178,7 +183,8 @@ class PlatformSeeder extends Seeder
                 'lesson_titles' => ['Строй укулеле', 'Аккорды C F G', 'Первый бой', 'Песня целиком'],
             ],
             [
-                'code' => '06',
+                'legacy_code' => '06',
+                'code' => 'muzykalnaya-teoriya',
                 'title' => 'Музыкальная теория',
                 'author' => 'Илья Ветров',
                 'category' => 'Теория',
@@ -200,20 +206,28 @@ class PlatformSeeder extends Seeder
             ],
         ];
 
-        foreach ($courses as $courseData) {
+        foreach ($courses as $courseIndex => $courseData) {
             $lessonTitles = $courseData['lesson_titles'];
-            unset($courseData['lesson_titles']);
+            $legacyCode = $courseData['legacy_code'];
+            unset($courseData['lesson_titles'], $courseData['legacy_code']);
             $owner = $teachersByName[$courseData['author']] ?? null;
             $courseData['user_id'] = $owner?->id;
             $courseData['author'] = $owner?->name ?? $courseData['author'];
 
-            $course = Course::query()->updateOrCreate(
-                ['code' => $courseData['code']],
-                [
-                    ...$courseData,
-                    'instrument_id' => $instrumentIdsByName[$courseData['instrument']] ?? null,
-                ],
-            );
+            $course = Course::query()
+                ->whereIn('code', [$legacyCode, $courseData['code']])
+                ->first();
+
+            $coursePayload = [
+                ...$courseData,
+                'instrument_id' => $instrumentIdsByName[$courseData['instrument']] ?? null,
+            ];
+
+            if ($course) {
+                $course->update($coursePayload);
+            } else {
+                $course = Course::query()->create($coursePayload);
+            }
 
             $course->lessonList()->delete();
 
@@ -224,7 +238,7 @@ class PlatformSeeder extends Seeder
                     'title' => $title,
                     'description' => 'Короткий практический урок с демонстрацией, заданием для самостоятельной работы и проверкой ритма.',
                     'duration' => (10 + $index * 3).' мин',
-                    'video' => $lessonVideos[(($index + (((int) $course->code - 1) * 2)) % count($lessonVideos))],
+                    'video' => $lessonVideos[(($index + ($courseIndex * 2)) % count($lessonVideos))],
                     'completed' => $index < 2,
                     'position' => $index + 1,
                 ]);
@@ -268,15 +282,15 @@ class PlatformSeeder extends Seeder
         }
 
         $comments = [
-            ['author' => 'Мария', 'text' => 'Очень помогло упражнение с метрономом.', 'target' => 'Практика на ударных', 'target_type' => 'course', 'target_code' => '03', 'status' => 'ожидает'],
-            ['author' => 'Илья', 'text' => 'Добавил бы больше разборов песен.', 'target' => 'Основы гитары', 'target_type' => 'course', 'target_code' => '01', 'status' => 'ожидает'],
-            ['author' => 'Аня', 'text' => 'Не поняла задание к третьему уроку.', 'target' => 'Старт на фортепиано', 'target_type' => 'course', 'target_code' => '02', 'status' => 'ожидает'],
-            ['author' => 'Олег', 'text' => 'После восьми коротких уроков стало проще держать ритм и не сбиваться на смене аккордов.', 'target' => 'Основы гитары', 'target_type' => 'course', 'target_code' => '01', 'status' => 'одобрено'],
-            ['author' => 'Лена', 'text' => 'Понравились упражнения на две руки: уроки короткие, но прогресс заметен сразу.', 'target' => 'Старт на фортепиано', 'target_type' => 'course', 'target_code' => '02', 'status' => 'одобрено'],
-            ['author' => 'Максим', 'text' => 'Хорошая подача по координации, особенно блок с хай-хэтом и переходами.', 'target' => 'Практика на ударных', 'target_type' => 'course', 'target_code' => '03', 'status' => 'одобрено'],
-            ['author' => 'София', 'text' => 'Разминки и запись голоса помогли услышать, где интонация плавает.', 'target' => 'Тренировка вокала', 'target_type' => 'course', 'target_code' => '04', 'status' => 'одобрено'],
-            ['author' => 'Никита', 'text' => 'Курс быстрый и понятный: уже после первых занятий можно сыграть песню целиком.', 'target' => 'Курс укулеле', 'target_type' => 'course', 'target_code' => '05', 'status' => 'одобрено'],
-            ['author' => 'Вера', 'text' => 'Теория наконец связалась с практикой, особенно темы интервалов и тональностей.', 'target' => 'Музыкальная теория', 'target_type' => 'course', 'target_code' => '06', 'status' => 'одобрено'],
+            ['author' => 'Мария', 'text' => 'Очень помогло упражнение с метрономом.', 'target' => 'Практика на ударных', 'target_type' => 'course', 'target_code' => 'praktika-na-udarnyh', 'status' => 'ожидает'],
+            ['author' => 'Илья', 'text' => 'Добавил бы больше разборов песен.', 'target' => 'Основы гитары', 'target_type' => 'course', 'target_code' => 'osnovy-gitary', 'status' => 'ожидает'],
+            ['author' => 'Аня', 'text' => 'Не поняла задание к третьему уроку.', 'target' => 'Старт на фортепиано', 'target_type' => 'course', 'target_code' => 'start-na-fortepiano', 'status' => 'ожидает'],
+            ['author' => 'Олег', 'text' => 'После восьми коротких уроков стало проще держать ритм и не сбиваться на смене аккордов.', 'target' => 'Основы гитары', 'target_type' => 'course', 'target_code' => 'osnovy-gitary', 'status' => 'одобрено'],
+            ['author' => 'Лена', 'text' => 'Понравились упражнения на две руки: уроки короткие, но прогресс заметен сразу.', 'target' => 'Старт на фортепиано', 'target_type' => 'course', 'target_code' => 'start-na-fortepiano', 'status' => 'одобрено'],
+            ['author' => 'Максим', 'text' => 'Хорошая подача по координации, особенно блок с хай-хэтом и переходами.', 'target' => 'Практика на ударных', 'target_type' => 'course', 'target_code' => 'praktika-na-udarnyh', 'status' => 'одобрено'],
+            ['author' => 'София', 'text' => 'Разминки и запись голоса помогли услышать, где интонация плавает.', 'target' => 'Тренировка вокала', 'target_type' => 'course', 'target_code' => 'trenirovka-vokala', 'status' => 'одобрено'],
+            ['author' => 'Никита', 'text' => 'Курс быстрый и понятный: уже после первых занятий можно сыграть песню целиком.', 'target' => 'Курс укулеле', 'target_type' => 'course', 'target_code' => 'kurs-ukulele', 'status' => 'одобрено'],
+            ['author' => 'Вера', 'text' => 'Теория наконец связалась с практикой, особенно темы интервалов и тональностей.', 'target' => 'Музыкальная теория', 'target_type' => 'course', 'target_code' => 'muzykalnaya-teoriya', 'status' => 'одобрено'],
         ];
 
         foreach ($comments as $comment) {

@@ -15,6 +15,7 @@ class UserVideoController extends Controller
         return response()->json([
             'videos' => UserVideo::query()
                 ->with('user')
+                ->where('status', 'опубликовано')
                 ->latest()
                 ->get()
                 ->map(fn (UserVideo $video) => $video->toFrontend()),

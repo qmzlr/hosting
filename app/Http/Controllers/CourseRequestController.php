@@ -53,7 +53,8 @@ class CourseRequestController extends Controller
         $normalizedLevel = $request->level === 'Новичок' ? 'Начинающий' : $request->level;
 
         return Course::query()
-            ->where('status', 'опубликовано')
+            ->with('owner')
+            ->publiclyVisible()
             ->get()
             ->sortByDesc(function (Course $course) use ($request, $normalizedLevel): int {
                 $score = 0;

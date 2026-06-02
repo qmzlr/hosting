@@ -15,11 +15,23 @@ use Illuminate\Validation\Rule;
 
 class PlatformCommentController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $user = $this->user($request);
+        $canModerate = $user && in_array($user->role, ['admin', 'moderator'], true);
+
         return response()->json([
             'comments' => PlatformComment::query()
                 ->with(['course', 'lesson.course', 'video'])
+                ->when(! $canModerate, fn ($query) => $query
+                    ->where('status', 'одобрено')
+                    ->where(function ($query): void {
+                        $query
+                            ->where('target_type', 'platform')
+                            ->orWhereHas('course', fn ($course) => $course->publiclyVisible())
+                            ->orWhereHas('lesson.course', fn ($course) => $course->publiclyVisible())
+                            ->orWhereHas('video', fn ($video) => $video->where('status', 'опубликовано'));
+                    }))
                 ->latest()
                 ->get()
                 ->map(fn (PlatformComment $comment) => $comment->toFrontend()),
@@ -91,7 +103,11 @@ class PlatformCommentController extends Controller
     private function resolveTarget(string $type, string $code, User $user): array
     {
         if ($type === 'course') {
-            $course = Course::query()->where('code', $code)->where('status', 'опубликовано')->firstOrFail();
+            $course = Course::query()
+                ->with('owner')
+                ->where('code', Course::resolveCode($code))
+                ->publiclyVisible()
+                ->firstOrFail();
             $isEnrolled = CourseEnrollment::query()
                 ->where('userId', $user->id)
                 ->where('course_id', $course->id)
@@ -103,8 +119,11 @@ class PlatformCommentController extends Controller
         }
 
         if ($type === 'lesson') {
-            $lesson = Lesson::query()->with('course')->where('code', $code)->firstOrFail();
-            abort_if($lesson->course?->status !== 'опубликовано', 404, 'Урок не найден.');
+            $lesson = Lesson::query()
+                ->with(['course.owner'])
+                ->where('code', $code)
+                ->whereHas('course', fn ($course) => $course->publiclyVisible())
+                ->firstOrFail();
             $isCompleted = LessonProgress::query()
                 ->where('userId', $user->id)
                 ->where('lesson_id', $lesson->id)

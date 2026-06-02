@@ -30,7 +30,7 @@ class CourseController extends Controller
     {
         $course = Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('code', $code)
+            ->where('code', Course::resolveCode($code))
             ->firstOrFail();
 
         abort_if(! $this->canViewCourse($course, $this->user($request)), 404, 'Курс не найден.');
@@ -42,6 +42,7 @@ class CourseController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->prepareCourseCode($request);
         $validated = $this->validatedCourse($request);
         $lessons = $validated['lessonList'] ?? [];
         unset($validated['lessonList']);
@@ -59,10 +60,11 @@ class CourseController extends Controller
 
     public function update(Request $request, string $code): JsonResponse
     {
-        $course = Course::query()->where('code', $code)->firstOrFail();
+        $course = Course::query()->where('code', Course::resolveCode($code))->firstOrFail();
         $user = $this->user($request);
         $this->ensureCanManageCourse($user, $course);
 
+        $this->prepareCourseCode($request);
         $validated = $this->validatedCourse($request, $course->id);
         $lessons = $validated['lessonList'] ?? null;
         unset($validated['lessonList']);
@@ -80,7 +82,7 @@ class CourseController extends Controller
 
     public function destroy(Request $request, string $code): JsonResponse
     {
-        $course = Course::query()->where('code', $code)->firstOrFail();
+        $course = Course::query()->where('code', Course::resolveCode($code))->firstOrFail();
         $this->ensureCanManageCourse($this->user($request), $course);
         $course->delete();
 
@@ -93,7 +95,8 @@ class CourseController extends Controller
             'id' => [
                 'required',
                 'string',
-                'max:16',
+                'max:64',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
                 Rule::unique('courses', 'code')->ignore($ignoreId),
             ],
             'title' => ['required', 'string', 'max:255'],
@@ -112,7 +115,7 @@ class CourseController extends Controller
             'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
             'video' => ['required', 'string', 'max:255'],
             'lessonList' => ['sometimes', 'array'],
-            'lessonList.*.id' => ['required_with:lessonList', 'string', 'max:64'],
+            'lessonList.*.id' => ['required_with:lessonList', 'string', 'max:96'],
             'lessonList.*.title' => ['required_with:lessonList', 'string', 'max:255'],
             'lessonList.*.description' => ['required_with:lessonList', 'string'],
             'lessonList.*.image' => ['nullable', 'string', 'max:255'],
@@ -149,6 +152,32 @@ class CourseController extends Controller
             'progress' => $payload['progress'] ?? 0,
             'video' => $payload['video'],
         ];
+    }
+
+    private function prepareCourseCode(Request $request): void
+    {
+        $source = $request->input('id') ?: $request->input('title') ?: 'course';
+
+        $request->merge([
+            'id' => $this->slugifyCourseCode(Course::resolveCode($source)),
+        ]);
+    }
+
+    private function slugifyCourseCode(string $value): string
+    {
+        $map = [
+            'а' => 'a', 'б' => 'b', 'в' => 'v', 'г' => 'g', 'д' => 'd', 'е' => 'e', 'ё' => 'e', 'ж' => 'zh',
+            'з' => 'z', 'и' => 'i', 'й' => 'y', 'к' => 'k', 'л' => 'l', 'м' => 'm', 'н' => 'n', 'о' => 'o',
+            'п' => 'p', 'р' => 'r', 'с' => 's', 'т' => 't', 'у' => 'u', 'ф' => 'f', 'х' => 'h', 'ц' => 'c',
+            'ч' => 'ch', 'ш' => 'sh', 'щ' => 'sch', 'ъ' => '', 'ы' => 'y', 'ь' => '', 'э' => 'e', 'ю' => 'yu',
+            'я' => 'ya',
+        ];
+
+        $slug = strtr(mb_strtolower(trim($value)), $map);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?: '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? trim(substr($slug, 0, 64), '-') : 'course';
     }
 
     private function syncLessons(Course $course, array $lessons): void
