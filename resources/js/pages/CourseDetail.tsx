@@ -46,6 +46,17 @@ export default function CourseDetail({
       setIsStarting(false)
     }
   }
+  const progressCard = (
+    <div className="pn-card-body">
+      <div className="pn-meta">Прогресс прохождения</div>
+      <h3 className="pn-title">{course.progress}%</h3>
+      <ProgressLine value={course.progress} />
+      <button className="pn-button is-dark" disabled={!firstLesson || isStarting} onClick={startCourse}>
+        {!isAuthenticated ? 'Войти, чтобы начать курс' : isStarting ? 'Открываем курс...' : course.progress > 0 ? 'Продолжить обучение' : 'Начать курс'}
+      </button>
+      {message && <p className="pn-message is-error">{message}</p>}
+    </div>
+  )
 
   const submitComment = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -77,6 +88,13 @@ export default function CourseDetail({
 
   return (
     <AppShell>
+      <section className="course-mobile-start">
+        <div className="pn-container">
+          <div className="course-aside">
+            {progressCard}
+          </div>
+        </div>
+      </section>
       <PageHero eyebrow={`${course.instrument} · ${course.level}`} title={course.title} text={course.tagline} image={course.img} />
       <section className="pn-section">
         <div className="pn-container course-detail-grid">
@@ -143,15 +161,7 @@ export default function CourseDetail({
           </div>
           <aside className="course-aside">
             <img src={course.img} alt={course.title} />
-            <div className="pn-card-body">
-              <div className="pn-meta">Прогресс прохождения</div>
-              <h3 className="pn-title">{course.progress}%</h3>
-              <ProgressLine value={course.progress} />
-              <button className="pn-button is-dark" disabled={!firstLesson || isStarting} onClick={startCourse}>
-                {!isAuthenticated ? 'Войти, чтобы начать курс' : isStarting ? 'Открываем курс...' : course.progress > 0 ? 'Продолжить обучение' : 'Начать курс'}
-              </button>
-              {message && <p className="pn-message is-error">{message}</p>}
-            </div>
+            {progressCard}
           </aside>
         </div>
       </section>

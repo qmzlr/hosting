@@ -11,6 +11,7 @@ use App\Models\PlatformComment;
 use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -103,8 +104,8 @@ class PlatformPageController extends Controller
             ->pluck('course_id')
             ->all();
         $profileCourses = Course::query()
-            ->with('lessonList')
-            ->where('status', 'опубликовано')
+            ->with(['lessonList', 'owner'])
+            ->publiclyVisible()
             ->whereIn('id', $enrolledCourseIds)
             ->orderBy('code')
             ->get()
@@ -140,10 +141,12 @@ class PlatformPageController extends Controller
 
     public function communityVideo(Request $request, int $video): Response
     {
+        $user = $this->user($request);
         $userVideo = UserVideo::query()
             ->with('user')
-            ->where('status', 'опубликовано')
+            ->when(! $user || ! in_array($user->role, ['admin', 'moderator'], true), fn ($query) => $query->where('status', 'опубликовано'))
             ->findOrFail($video);
+        $isModerationPreview = $request->boolean('moderation') && $user && in_array($user->role, ['admin', 'moderator'], true);
 
         return Inertia::render('CommunityVideo', [
             'video' => $userVideo->toFrontend(),
@@ -154,7 +157,8 @@ class PlatformPageController extends Controller
                 ->latest()
                 ->get()
                 ->map(fn (PlatformComment $comment) => $comment->toFrontend()),
-            'canComment' => $this->userId($request) !== null,
+            'canComment' => ! $isModerationPreview && $this->userId($request) !== null,
+            'isModerationPreview' => $isModerationPreview,
         ]);
     }
 
@@ -289,7 +293,7 @@ class PlatformPageController extends Controller
 
         return Course::query()
             ->with(['lessonList', 'owner'])
-            ->where('status', 'опубликовано')
+            ->publiclyVisible()
             ->orderBy('code')
             ->get()
             ->map(fn (Course $course) => $course->toFrontend(true, $userId));
@@ -312,7 +316,8 @@ class PlatformPageController extends Controller
 
         return Course::query()
             ->with('lessonList')
-            ->where('status', 'опубликовано')
+            ->with('owner')
+            ->publiclyVisible()
             ->whereNotIn('id', $enrolledCourseIds)
             ->get()
             ->sort(function (Course $first, Course $second) use ($user, $instrumentIds): int {
@@ -385,6 +390,7 @@ class PlatformPageController extends Controller
             ->with('lesson.course')
             ->where('userId', $user->id)
             ->where('completed', true)
+            ->whereHas('lesson.course', fn ($query) => $query->publiclyVisible())
             ->orderByDesc('completedAt')
             ->orderByDesc('updated_at')
             ->get()
@@ -445,19 +451,17 @@ class PlatformPageController extends Controller
 
     private function canViewCourse(Course $course, ?User $user): bool
     {
+        if ($user && in_array($user->role, ['admin', 'moderator'], true)) {
+            return true;
+        }
+
         if ($course->status === 'опубликовано') {
-            return true;
+            return $course->owner?->role === 'teacher'
+                && $course->owner?->teacher_status === 'одобрен'
+                && ! $course->owner?->is_banned;
         }
 
-        if (! $user) {
-            return false;
-        }
-
-        if (in_array($user->role, ['admin', 'moderator'], true)) {
-            return true;
-        }
-
-        return $user->role === 'teacher' && (int) $course->user_id === (int) $user->id;
+        return $user?->role === 'teacher' && (int) $course->user_id === (int) $user->id;
     }
 
     private function teacherPayload(User $user): array
@@ -470,6 +474,15 @@ class PlatformPageController extends Controller
             'instrument' => $user->instrument,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),
             'instruments' => $user->instruments->pluck('name')->values()->all(),
+            'documents' => collect($user->teacher_documents ?? [])
+                ->map(fn (array $document) => [
+                    'name' => $document['name'] ?? basename($document['path'] ?? ''),
+                    'url' => isset($document['path']) ? Storage::disk('public')->url($document['path']) : '#',
+                    'mime' => $document['mime'] ?? null,
+                    'size' => (int) ($document['size'] ?? 0),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 

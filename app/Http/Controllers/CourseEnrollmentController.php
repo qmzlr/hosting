@@ -15,9 +15,9 @@ class CourseEnrollmentController extends Controller
         abort_if(! $userId, 403, 'Нужно войти в аккаунт.');
 
         $course = Course::query()
-            ->with('lessonList')
+            ->with(['lessonList', 'owner'])
             ->where('code', $courseCode)
-            ->where('status', 'опубликовано')
+            ->publiclyVisible()
             ->firstOrFail();
 
         CourseEnrollment::query()->firstOrCreate(

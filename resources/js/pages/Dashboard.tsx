@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AppShell, PageHero, ProgressLine, SectionTitle } from '@/components/AppShell'
 import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import { initialUploadProgress, UploadProgress } from '@/components/UploadProgress'
@@ -165,6 +165,22 @@ export default function Dashboard({
       setIsDeletingProfile(false)
     }
   }
+
+  useEffect(() => {
+    if (!isProfileDialogOpen && !isLessonsDialogOpen) {
+      return
+    }
+
+    window.history.pushState({ dialog: true }, '')
+    const closeDialogOnBack = () => {
+      setIsProfileDialogOpen(false)
+      setIsLessonsDialogOpen(false)
+    }
+
+    window.addEventListener('popstate', closeDialogOnBack)
+
+    return () => window.removeEventListener('popstate', closeDialogOnBack)
+  }, [isLessonsDialogOpen, isProfileDialogOpen])
 
   return (
     <AppShell>

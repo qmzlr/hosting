@@ -11,12 +11,18 @@ type QueueItem =
   | { kind: 'teacher'; id: string; status: TeacherApplication['status']; title: string; meta: string; text: string; source: TeacherApplication }
   | { kind: 'course'; id: string; status: NonNullable<Course['status']>; title: string; meta: string; text: string; source: Course }
 
-type ModeratorTab = 'Все' | 'Ожидают' | 'Видео' | 'Комментарии' | 'Учителя' | 'Курсы'
+type ModeratorTab = 'Ожидают' | 'Видео' | 'Комментарии' | 'Учителя' | 'Курсы'
 
-const statusLabels = ['Все статусы', 'ожидает', 'на модерации', 'одобрено', 'одобрен', 'опубликовано', 'отклонено', 'отклонён'] as const
+const allStatusLabel = 'Все статусы'
+const statusLabelsByTab = {
+  Ожидают: [allStatusLabel, 'ожидает', 'на модерации'],
+  Видео: [allStatusLabel, 'на модерации', 'опубликовано', 'отклонено'],
+  Комментарии: [allStatusLabel, 'ожидает', 'одобрено', 'отклонено'],
+  Учителя: [allStatusLabel, 'ожидает', 'одобрен', 'отклонён'],
+  Курсы: [allStatusLabel, 'на модерации', 'опубликовано', 'отклонено'],
+} as const
 const pageSize = 8
 const workModes = [
-  ['Вся очередь', 'Все материалы в одной рабочей ленте', 'Все'],
   ['Видео', 'Проверка пользовательских видео', 'Видео'],
   ['Комментарии', 'Проверка обсуждений и отзывов', 'Комментарии'],
   ['Учителя', 'Заявки преподавателей на доступ к курсам', 'Учителя'],
@@ -39,7 +45,7 @@ export default function Moderator({
   const [teachers, setTeachers] = useState(teacherApplications)
   const [courses, setCourses] = useState(courseSubmissions)
   const [tab, setTab] = useState<ModeratorTab | null>(null)
-  const [status, setStatus] = useState<(typeof statusLabels)[number]>('Все статусы')
+  const [status, setStatus] = useState<string>(allStatusLabel)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
@@ -69,7 +75,7 @@ export default function Moderator({
       status: teacher.status,
       title: teacher.name || teacher.email || 'Заявка учителя',
       meta: teacher.email || 'email не указан',
-      text: teacher.instruments.length ? `Инструменты: ${teacher.instruments.join(', ')}` : 'Инструменты не выбраны',
+      text: teacher.instruments.length ? teacher.instruments.join(', ') : 'Инструменты не выбраны',
       source: teacher,
     })),
     ...courses.map((course) => ({
@@ -87,26 +93,27 @@ export default function Moderator({
     const isPending = item.status === 'ожидает' || item.status === 'на модерации'
     const matchesTab =
       tab === null ||
-      tab === 'Все' ||
       (tab === 'Ожидают' && isPending) ||
       (tab === 'Видео' && item.kind === 'video') ||
       (tab === 'Комментарии' && item.kind === 'comment') ||
       (tab === 'Учителя' && item.kind === 'teacher') ||
       (tab === 'Курсы' && item.kind === 'course')
-    const matchesStatus = status === 'Все статусы' || item.status === status
+    const matchesStatus = status === allStatusLabel || item.status === status
     const haystack = `${item.title} ${item.meta} ${item.text}`.toLowerCase()
     return matchesTab && matchesStatus && haystack.includes(query.toLowerCase())
   })
+  const statusLabels = tab ? statusLabelsByTab[tab] : [allStatusLabel]
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, pageCount)
   const visibleItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const selectTab = (nextTab: ModeratorTab | null) => {
     setTab(nextTab)
+    setStatus(allStatusLabel)
     setPage(1)
   }
 
-  const selectStatus = (nextStatus: (typeof statusLabels)[number]) => {
+  const selectStatus = (nextStatus: string) => {
     setStatus(nextStatus)
     setPage(1)
   }
@@ -177,9 +184,9 @@ export default function Moderator({
           ) : (
             <>
               <div className="moderator-toolbar">
-                <button className="pn-button" onClick={() => { selectTab(null); setQuery(''); setStatus('Все статусы') }}>Назад к выбору</button>
+                <button className="pn-button" onClick={() => { selectTab(null); setQuery('') }}>Назад к выбору</button>
                 <input className="pn-input" value={query} onChange={(event) => search(event.target.value)} placeholder="Поиск по автору, названию или тексту" />
-                <select className="pn-select" value={status} onChange={(event) => selectStatus(event.target.value as (typeof statusLabels)[number])}>
+                <select className="pn-select" value={status} onChange={(event) => selectStatus(event.target.value)}>
                   {statusLabels.map((item) => <option key={item}>{item}</option>)}
                 </select>
               </div>
@@ -194,13 +201,19 @@ export default function Moderator({
                     <div>
                       <div className="pn-meta">{kindLabel(item.kind)} · {item.status}</div>
                       <h3 className="pn-title">{item.title}</h3>
-                      <p className="pn-text">{item.meta}</p>
-                      <p className={item.kind === 'comment' ? 'moderation-comment-text' : undefined}>{item.text}</p>
+                      {item.kind === 'teacher' ? (
+                        <TeacherDetails teacher={item.source} />
+                      ) : (
+                        <>
+                          <p className="pn-text">{item.meta}</p>
+                          <p className={item.kind === 'comment' ? 'moderation-comment-text' : undefined}>{item.text}</p>
+                        </>
+                      )}
                       <div className="moderation-actions">
                         <button className="pn-button is-dark" onClick={() => updateItem(item, approvedStatus(item))}>Одобрить</button>
                         <button className="pn-button" onClick={() => updateItem(item, rejectedStatus(item))}>Отклонить</button>
                         <button className="pn-button" onClick={() => updateItem(item, queuedStatus(item))}>Вернуть в очередь</button>
-                        {item.kind !== 'teacher' && <button className="pn-button" onClick={() => openItem(item)}>Открыть</button>}
+                        {(item.kind === 'video' || item.kind === 'course') && <button className="pn-button" onClick={() => openItem(item)}>{item.kind === 'video' ? 'Смотреть видео' : 'Открыть курс'}</button>}
                       </div>
                     </div>
                   </article>
@@ -226,6 +239,45 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
+function TeacherDetails({ teacher }: { teacher: TeacherApplication }) {
+  return (
+    <div className="teacher-review-details">
+      <dl>
+        <div>
+          <dt>Email</dt>
+          <dd>{teacher.email || 'не указан'}</dd>
+        </div>
+        <div>
+          <dt>Инструменты</dt>
+          <dd>{teacher.instruments.length ? teacher.instruments.join(', ') : 'не выбраны'}</dd>
+        </div>
+      </dl>
+      <div className="teacher-review-documents">
+        <div className="pn-meta">Документы и сертификаты</div>
+        {teacher.documents.length > 0 ? (
+          <div className="teacher-document-list">
+            {teacher.documents.map((document) => (
+              <a className="teacher-document-link" href={document.url} key={`${teacher.id}-${document.name}-${document.url}`} rel="noreferrer" target="_blank">
+                <span>{document.name || 'Документ'}</span>
+                <em>{formatFileSize(document.size)}{document.mime ? ` · ${document.mime}` : ''}</em>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="pn-text">Файлы не приложены.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function formatFileSize(size: number) {
+  if (!size) return 'размер не указан'
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} КБ`
+
+  return `${(size / (1024 * 1024)).toFixed(1)} МБ`
+}
+
 function numericId(id: string) {
   return id.replace(/^\D+/, '')
 }
@@ -238,7 +290,7 @@ function priority(status: string) {
 
 function openItem(item: QueueItem) {
   if (item.kind === 'video') {
-    router.visit(item.source.detailUrl ?? '/community')
+    router.visit(`${item.source.detailUrl ?? '/community'}?moderation=1`)
     return
   }
 

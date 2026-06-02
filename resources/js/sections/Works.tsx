@@ -69,6 +69,7 @@ export default function Works({ courses, onSelectCourse }: WorksProps) {
             Популярные курсы
           </h2>
           <span
+            className="works-section-aside"
             style={{
               fontSize: '12px',
               letterSpacing: '0.18em',
@@ -181,7 +182,7 @@ function CourseCard({
                 marginBottom: '6px',
               }}
             >
-              {course.id} · {course.category}
+              {course.category}
             </p>
             <p
               style={{
@@ -195,7 +196,7 @@ function CourseCard({
               {course.title}
             </p>
             <p className="course-card__author">
-              Автор: {course.author}
+              Автор: {course.owner?.name || course.owner?.email || course.author}
             </p>
           </div>
           <span

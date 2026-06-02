@@ -405,6 +405,11 @@
 }
 
 @media (max-width: 560px) {
+  .works-section-aside,
+  .pn-section-title span {
+    display: none !important;
+  }
+
   .course-card__meta {
     opacity: 1;
     transform: none;
@@ -421,6 +426,19 @@
   .capability-glow-card {
     grid-template-columns: 1fr !important;
     gap: 18px !important;
+  }
+
+  .capability-glow-card.is-static-mobile {
+    background-image: none !important;
+    background-color: rgba(10, 38, 67, 0.78) !important;
+    backdrop-filter: none !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    box-shadow: none !important;
+  }
+
+  .course-aside {
+    order: -1;
+    position: static;
   }
 }
 
@@ -2741,6 +2759,70 @@
     line-height: 1.65;
   }
 
+  .teacher-review-details {
+    display: grid;
+    gap: 18px;
+    margin-top: 12px;
+  }
+
+  .teacher-review-details dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+  }
+
+  .teacher-review-details dt {
+    color: #777;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .teacher-review-details dd {
+    margin: 6px 0 0;
+    color: #111;
+    font-size: 15px;
+  }
+
+  .teacher-review-documents {
+    display: grid;
+    gap: 10px;
+  }
+
+  .teacher-document-list {
+    display: grid;
+    gap: 8px;
+    max-width: 720px;
+  }
+
+  .teacher-document-link {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0,0,0,0.18);
+    color: #061d33;
+    text-decoration: none;
+  }
+
+  .teacher-document-link span,
+  .teacher-document-link em {
+    min-width: 0;
+  }
+
+  .teacher-document-link span {
+    overflow-wrap: anywhere;
+    font-weight: 700;
+  }
+
+  .teacher-document-link em {
+    flex: 0 0 auto;
+    color: #777;
+    font-style: normal;
+    font-size: 13px;
+  }
+
   .moderator-summary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3025,6 +3107,20 @@
     letter-spacing: 0.08em;
   }
 
+  .teacher-review-details dl,
+  .teacher-document-link {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-document-link {
+    display: grid;
+    gap: 6px;
+  }
+
+  .teacher-document-link em {
+    flex: initial;
+  }
+
   .metronome-section {
     overflow: hidden;
   }
@@ -3305,5 +3401,113 @@
     padding: 0 6px;
     font-size: 10px;
     letter-spacing: 0.12em;
+  }
+}
+
+@media (min-width: 561px) {
+  .course-mobile-start {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .works-section-aside,
+  .capabilities-orbital,
+  .orbital-svg-container,
+  .pn-section-title span,
+  .pn-page-hero__content span,
+  .auth-visual {
+    display: none !important;
+  }
+
+  .auth-page {
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  .auth-form {
+    margin: 0 auto;
+    min-height: auto;
+    padding-top: 96px !important;
+  }
+
+  .capability-glow-card [data-glow-layer] {
+    display: none !important;
+  }
+
+  .capability-glow-card {
+    --bg-spot-opacity: 0 !important;
+    --border-spot-opacity: 0 !important;
+    --border-light-opacity: 0 !important;
+    --backdrop: hsl(0 0% 70% / 0.11) !important;
+    background-color: rgba(255,255,255,0.095) !important;
+    backdrop-filter: blur(10px) !important;
+    box-shadow: none !important;
+  }
+
+  .capability-glow-card.is-static-mobile {
+    background-color: rgba(255,255,255,0.095) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+  }
+
+  .capability-glow-card:hover {
+    border-color: rgba(255,255,255,0.2) !important;
+  }
+
+  .course-detail-grid > .course-aside {
+    display: none !important;
+  }
+
+  .course-mobile-start {
+    display: block;
+    padding: 84px 0 0;
+    background: #f4f4f5;
+  }
+
+  .course-mobile-start .course-aside {
+    position: static;
+  }
+
+  .course-mobile-start .course-aside img {
+    display: none;
+  }
+
+  .dashboard-profile-card {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .dashboard-profile-card .pn-text {
+    text-align: center;
+  }
+
+  .dashboard-profile-stats,
+  .dashboard-actions {
+    width: 100%;
+  }
+
+  .profile-dialog {
+    width: calc(100vw - 32px) !important;
+    max-height: calc(100svh - 32px) !important;
+    padding: 28px 24px 34px !important;
+  }
+
+  .profile-dialog [data-slot="dialog-header"] {
+    padding-right: 54px;
+    text-align: left;
+  }
+
+  .profile-dialog [data-slot="dialog-title"] {
+    font-size: clamp(30px, 9vw, 36px) !important;
+    line-height: 1.06 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-dialog [data-slot="dialog-close"] {
+    top: 18px !important;
+    right: 18px !important;
+    width: 42px;
+    height: 42px;
   }
 }

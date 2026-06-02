@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ModerationController extends Controller
@@ -56,6 +57,15 @@ class ModerationController extends Controller
             'instrument' => $teacher->instrument,
             'instrumentIds' => $teacher->instruments->pluck('slug')->values()->all(),
             'instruments' => $teacher->instruments->pluck('name')->values()->all(),
+            'documents' => collect($teacher->teacher_documents ?? [])
+                ->map(fn (array $document) => [
+                    'name' => $document['name'] ?? basename($document['path'] ?? ''),
+                    'url' => isset($document['path']) ? Storage::disk('public')->url($document['path']) : '#',
+                    'mime' => $document['mime'] ?? null,
+                    'size' => (int) ($document['size'] ?? 0),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 }

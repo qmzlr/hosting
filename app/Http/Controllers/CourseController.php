@@ -19,7 +19,7 @@ class CourseController extends Controller
         return response()->json([
             'courses' => Course::query()
                 ->with(['lessonList', 'owner'])
-                ->where('status', 'опубликовано')
+                ->publiclyVisible()
                 ->orderBy('code')
                 ->get()
                 ->map(fn (Course $course) => $course->toFrontend(true, $userId)),
@@ -33,7 +33,7 @@ class CourseController extends Controller
             ->where('code', $code)
             ->firstOrFail();
 
-        abort_if($course->status !== 'опубликовано', 404, 'Курс не найден.');
+        abort_if(! $this->canViewCourse($course, $this->user($request)), 404, 'Курс не найден.');
 
         return response()->json([
             'course' => $course->toFrontend(true, $request->session()->get('user_id')),
@@ -132,7 +132,7 @@ class CourseController extends Controller
             'status' => $isTeacher ? 'на модерации' : ($existing?->status ?? 'опубликовано'),
             'instrument_id' => $this->instrumentIdFor($payload['instrument']),
             'title' => $payload['title'],
-            'author' => $payload['author'],
+            'author' => $user?->name ?: $payload['author'],
             'category' => $payload['category'],
             'instrument' => $payload['instrument'],
             'image' => $payload['img'],
@@ -190,6 +190,21 @@ class CourseController extends Controller
         if ($course) {
             abort_if((int) $course->user_id !== (int) $user->id, 403, 'Доступ запрещён.');
         }
+    }
+
+    private function canViewCourse(Course $course, ?User $user): bool
+    {
+        if ($user && in_array($user->role, ['admin', 'moderator'], true)) {
+            return true;
+        }
+
+        if ($course->status === 'опубликовано') {
+            return $course->owner?->role === 'teacher'
+                && $course->owner?->teacher_status === 'одобрен'
+                && ! $course->owner?->is_banned;
+        }
+
+        return $user?->role === 'teacher' && (int) $course->user_id === (int) $user->id;
     }
 
     private function instrumentIdFor(string $name): ?int

@@ -6,14 +6,21 @@ use App\Models\Course;
 use App\Models\Instrument;
 use App\Models\Lesson;
 use App\Models\PlatformComment;
+use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class PlatformSeeder extends Seeder
 {
     public function run(): void
     {
-        $lessonVideos = ['/videos/spatial.mp4', '/videos/capabilities-music.mp4', '/videos/sea-hotel.mp4'];
+        $lessonVideos = collect(range(1, 12))
+            ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.mp4')
+            ->all();
+        $communityImages = collect(range(1, 20))
+            ->map(fn (int $index) => '/images/community/community-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.jpg')
+            ->all();
 
         $instruments = [
             ['slug' => 'guitar', 'name' => 'Гитара', 'image' => '/images/course-guitar.jpg', 'description' => 'Акустика, аккорды, ритм и песни для самостоятельной практики.', 'course_count' => 1],
@@ -32,14 +39,38 @@ class PlatformSeeder extends Seeder
         }
 
         $instrumentIdsByName = Instrument::query()->pluck('id', 'name');
-        $teacherId = \App\Models\User::query()
-            ->where('email', 'teacher@example.com')
-            ->value('id');
+        $teachersByName = collect([
+            ['name' => 'Антон Лебедев', 'email' => 'anton.teacher@example.com', 'instrument' => 'Гитара'],
+            ['name' => 'Мария Соколова', 'email' => 'maria.teacher@example.com', 'instrument' => 'Фортепиано'],
+            ['name' => 'Денис Орлов', 'email' => 'denis.teacher@example.com', 'instrument' => 'Ударные'],
+            ['name' => 'Елена Миронова', 'email' => 'elena.teacher@example.com', 'instrument' => 'Вокал'],
+            ['name' => 'Кира Волкова', 'email' => 'kira.teacher@example.com', 'instrument' => 'Укулеле'],
+            ['name' => 'Илья Ветров', 'email' => 'ilya.teacher@example.com', 'instrument' => 'Любой инструмент'],
+        ])->mapWithKeys(function (array $teacher) use ($instrumentIdsByName) {
+            $user = User::query()->updateOrCreate(
+                ['email' => $teacher['email']],
+                [
+                    'name' => $teacher['name'],
+                    'password' => Hash::make('teacher123'),
+                    'role' => 'teacher',
+                    'teacher_status' => 'одобрен',
+                    'instrument' => $teacher['instrument'],
+                    'is_banned' => false,
+                    'lastSignInAt' => now(),
+                ],
+            );
+
+            if ($teacher['instrument'] !== 'Любой инструмент') {
+                $instrumentId = $instrumentIdsByName[$teacher['instrument']] ?? null;
+                $user->instruments()->sync($instrumentId ? [$instrumentId] : []);
+            }
+
+            return [$teacher['name'] => $user];
+        });
 
         $courses = [
             [
                 'code' => '01',
-                'user_id' => $teacherId,
                 'title' => 'Основы гитары',
                 'author' => 'Антон Лебедев',
                 'category' => 'Основы',
@@ -172,6 +203,9 @@ class PlatformSeeder extends Seeder
         foreach ($courses as $courseData) {
             $lessonTitles = $courseData['lesson_titles'];
             unset($courseData['lesson_titles']);
+            $owner = $teachersByName[$courseData['author']] ?? null;
+            $courseData['user_id'] = $owner?->id;
+            $courseData['author'] = $owner?->name ?? $courseData['author'];
 
             $course = Course::query()->updateOrCreate(
                 ['code' => $courseData['code']],
@@ -190,7 +224,7 @@ class PlatformSeeder extends Seeder
                     'title' => $title,
                     'description' => 'Короткий практический урок с демонстрацией, заданием для самостоятельной работы и проверкой ритма.',
                     'duration' => (10 + $index * 3).' мин',
-                    'video' => $lessonVideos[$index % count($lessonVideos)],
+                    'video' => $lessonVideos[(($index + (((int) $course->code - 1) * 2)) % count($lessonVideos))],
                     'completed' => $index < 2,
                     'position' => $index + 1,
                 ]);
@@ -224,8 +258,10 @@ class PlatformSeeder extends Seeder
             UserVideo::query()->updateOrCreate(
                 ['title' => $video['title']],
                 [
+                    'userId' => null,
                     ...$video,
                     'instrument_id' => $instrumentIdsByName[$video['instrument']] ?? null,
+                    'image' => $communityImages[$index % count($communityImages)],
                     'video' => $lessonVideos[$index % count($lessonVideos)],
                 ],
             );

@@ -9,6 +9,14 @@ import { useAuth } from '@/hooks/useAuth'
 import { uploadFormData, type UploadProgressState } from '@/lib/http'
 
 const pageSize = 6
+const communityPreviewByInstrument: Record<string, string[]> = {
+  Гитара: ['/images/community/community-01.jpg', '/images/community/community-07.jpg', '/images/community/community-13.jpg'],
+  Фортепиано: ['/images/community/community-02.jpg', '/images/community/community-08.jpg', '/images/community/community-14.jpg'],
+  Ударные: ['/images/community/community-03.jpg', '/images/community/community-09.jpg', '/images/community/community-15.jpg'],
+  Вокал: ['/images/community/community-04.jpg', '/images/community/community-10.jpg', '/images/community/community-16.jpg'],
+  Укулеле: ['/images/community/community-05.jpg', '/images/community/community-11.jpg', '/images/community/community-17.jpg'],
+  Теория: ['/images/community/community-06.jpg', '/images/community/community-12.jpg', '/images/community/community-18.jpg'],
+}
 
 export default function MyVideos({ instruments, userVideos }: { instruments: Instrument[]; userVideos: UserVideo[] }) {
   const { isAuthenticated } = useAuth()
@@ -38,7 +46,7 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
       formData.append('title', title)
       formData.append('description', description)
       formData.append('instrument', instrument)
-      formData.append('image', instruments.find((item) => item.name === instrument)?.image || '/images/course-theory.jpg')
+      formData.append('image', previewForInstrument(instrument, videos.length))
       formData.append('video', videoFile)
 
       const payload = await uploadFormData<{ video: UserVideo }>('/api/videos', formData, setUploadProgress)
@@ -176,4 +184,10 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
       </Dialog>
     </AppShell>
   )
+}
+
+function previewForInstrument(instrument: string, offset: number) {
+  const pool = communityPreviewByInstrument[instrument] ?? ['/images/community/community-19.jpg', '/images/community/community-20.jpg']
+
+  return pool[offset % pool.length]
 }

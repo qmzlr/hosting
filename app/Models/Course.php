@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class Course extends Model
@@ -76,6 +77,16 @@ class Course extends Model
         return $this->hasMany(PlatformComment::class);
     }
 
+    public function scopePubliclyVisible(Builder $query): Builder
+    {
+        return $query
+            ->where('status', 'опубликовано')
+            ->whereHas('owner', fn (Builder $owner) => $owner
+                ->where('role', 'teacher')
+                ->where('teacher_status', 'одобрен')
+                ->where('is_banned', false));
+    }
+
     public function toFrontend(bool $withLessons = true, ?int $userId = null): array
     {
         $lessons = $withLessons ? $this->lessonList : collect();
@@ -96,7 +107,7 @@ class Course extends Model
                 'email' => $this->owner->email,
             ] : null,
             'title' => $this->title,
-            'author' => $this->author,
+            'author' => $this->owner?->name ?: $this->owner?->email ?: $this->author,
             'category' => $this->category,
             'instrument' => $this->instrument,
             'img' => $this->image,

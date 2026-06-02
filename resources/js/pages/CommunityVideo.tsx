@@ -8,10 +8,12 @@ import { postJson } from '@/lib/http'
 export default function CommunityVideo({
   canComment,
   comments,
+  isModerationPreview = false,
   video,
 }: {
   canComment: boolean
   comments: CommentItem[]
+  isModerationPreview?: boolean
   video: UserVideo
 }) {
   const { isAuthenticated } = useAuth()
@@ -69,6 +71,11 @@ export default function CommunityVideo({
             </div>
           </article>
           <aside className="community-video-sidebar">
+            {isModerationPreview && (
+              <button className="pn-button is-dark" onClick={() => router.visit('/moderator')}>
+                Назад к модерации
+              </button>
+            )}
             <article className="pn-card pn-card-body">
               <div className="pn-meta">{video.status}</div>
               <h2 className="pn-title">{video.title}</h2>
@@ -86,7 +93,9 @@ export default function CommunityVideo({
                 ))}
                 {items.length === 0 && <p className="pn-text comments-empty">Пока нет одобренных комментариев.</p>}
               </div>
-              {canComment ? (
+              {isModerationPreview ? (
+                <p className="pn-text course-comment-note">Просмотр из модерации: форма комментариев скрыта.</p>
+              ) : canComment ? (
                 <form className="comment-form" onSubmit={submit}>
                   <textarea className="pn-textarea" value={text} onChange={(event) => setText(event.target.value)} placeholder="Оставьте комментарий к видео" required />
                   <button className="pn-button is-dark" disabled={isSubmitting || !text.trim()}>{isSubmitting ? 'Отправляем...' : 'Отправить на модерацию'}</button>

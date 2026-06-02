@@ -97,4 +97,10 @@ export interface TeacherApplication {
   instrument: string | null
   instrumentIds: string[]
   instruments: string[]
+  documents: {
+    name: string
+    url: string
+    mime: string | null
+    size: number
+  }[]
 }

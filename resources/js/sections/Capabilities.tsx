@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { GlowCard } from '@/components/ui/spotlight-card'
 
@@ -16,6 +16,16 @@ const features: { label: string; detail: string }[] = [
 export default function Capabilities() {
   const sectionRef = useRef<HTMLElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 700px)')
+    const sync = () => setIsMobile(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+
+    return () => media.removeEventListener('change', sync)
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -121,17 +131,20 @@ export default function Capabilities() {
               развития в одной платформе. Вот что доступно каждому ученику:
             </p>
           </div>
-          <div
-            style={{
-              flex: '0 0 clamp(180px, 22vw, 280px)',
-              aspectRatio: '1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <OrbitalBadge />
-          </div>
+          {!isMobile && (
+            <div
+              className="capabilities-orbital"
+              style={{
+                flex: '0 0 clamp(180px, 22vw, 280px)',
+                aspectRatio: '1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <OrbitalBadge />
+            </div>
+          )}
         </div>
 
         {/* Bullet grid */}
@@ -146,7 +159,7 @@ export default function Capabilities() {
           }}
         >
           {features.map((feature, i) => (
-            <BulletItem key={feature.label} index={i} {...feature} />
+            <BulletItem key={feature.label} index={i} isMobile={isMobile} {...feature} />
           ))}
         </ul>
       </div>
@@ -158,20 +171,32 @@ function BulletItem({
   label,
   detail,
   index,
+  isMobile,
 }: {
   label: string
   detail: string
   index: number
+  isMobile: boolean
 }) {
   return (
     <li className="capability-card-shell">
-      <GlowCard customSize glowColor="orange" className="capability-glow-card">
-        <span className="capability-index">{String(index + 1).padStart(2, '0')}</span>
-        <div className="capability-copy">
-          <h3>{label}</h3>
-          <p>{detail}</p>
+      {isMobile ? (
+        <div className="capability-glow-card is-static-mobile">
+          <span className="capability-index">{String(index + 1).padStart(2, '0')}</span>
+          <div className="capability-copy">
+            <h3>{label}</h3>
+            <p>{detail}</p>
+          </div>
         </div>
-      </GlowCard>
+      ) : (
+        <GlowCard customSize glowColor="orange" className="capability-glow-card">
+          <span className="capability-index">{String(index + 1).padStart(2, '0')}</span>
+          <div className="capability-copy">
+            <h3>{label}</h3>
+            <p>{detail}</p>
+          </div>
+        </GlowCard>
+      )}
     </li>
   )
 }
