@@ -26,6 +26,7 @@ class User extends Model
         'teacher_status',
         'teacher_documents',
         'is_banned',
+        'ban_reason',
         'instrument',
         'level',
         'lastSignInAt',

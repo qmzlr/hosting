@@ -7,9 +7,11 @@ type MediaAttachmentPreviewProps = {
   values?: File[]
   kind?: PreviewKind
   emptyText?: string
+  onRemove?: () => void
+  onRemoveValue?: (index: number) => void
 }
 
-export function MediaAttachmentPreview({ value, values, kind, emptyText = 'Файл пока не выбран.' }: MediaAttachmentPreviewProps) {
+export function MediaAttachmentPreview({ value, values, kind, emptyText = 'Файл пока не выбран.', onRemove, onRemoveValue }: MediaAttachmentPreviewProps) {
   if (values) {
     if (values.length === 0) {
       return <em className="attachment-status">{emptyText}</em>
@@ -17,8 +19,8 @@ export function MediaAttachmentPreview({ value, values, kind, emptyText = 'Фа�
 
     return (
       <div className="attachment-preview-list">
-        {values.map((file) => (
-          <SinglePreview key={`${file.name}-${file.size}-${file.lastModified}`} value={file} kind={kind} />
+        {values.map((file, index) => (
+          <SinglePreview key={`${file.name}-${file.size}-${file.lastModified}-${index}`} value={file} kind={kind} onRemove={onRemoveValue ? () => onRemoveValue(index) : undefined} />
         ))}
       </div>
     )
@@ -28,10 +30,10 @@ export function MediaAttachmentPreview({ value, values, kind, emptyText = 'Фа�
     return <em className="attachment-status">{emptyText}</em>
   }
 
-  return <SinglePreview value={value} kind={kind} />
+  return <SinglePreview value={value} kind={kind} onRemove={onRemove} />
 }
 
-function SinglePreview({ value, kind }: { value: string | File; kind?: PreviewKind }) {
+function SinglePreview({ value, kind, onRemove }: { value: string | File; kind?: PreviewKind; onRemove?: () => void }) {
   const fileUrl = useMemo(() => typeof value === 'string' ? null : URL.createObjectURL(value), [value])
   const [isOpen, setIsOpen] = useState(false)
   const source = typeof value === 'string' ? value : fileUrl
@@ -62,6 +64,11 @@ function SinglePreview({ value, kind }: { value: string | File; kind?: PreviewKi
           <a className="attachment-preview__open" href={source ?? undefined} download={typeof value === 'string' ? undefined : filename}>
             Открыть
           </a>
+        )}
+        {onRemove && (
+          <button type="button" className="attachment-preview__remove" onClick={onRemove}>
+            Убрать
+          </button>
         )}
       </div>
       {isOpen && source && (

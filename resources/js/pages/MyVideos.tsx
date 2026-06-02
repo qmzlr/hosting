@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { Instrument, UserVideo } from '@/data/courses'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadFormData, type UploadProgressState } from '@/lib/http'
+import { validateVideoFile, videoAccept } from '@/lib/uploads'
 
 const pageSize = 6
 const communityPreviewByInstrument: Record<string, string[]> = {
@@ -36,6 +37,11 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !videoFile) return
+    const validationMessage = validateVideoFile(videoFile)
+    if (validationMessage) {
+      setMessage(validationMessage)
+      return
+    }
 
     setIsUploading(true)
     setUploadProgress(initialUploadProgress())
@@ -173,9 +179,25 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
             </select>
             <label className="profile-file-control community-video-file">
               <span>{videoFile ? videoFile.name : 'Прикрепить видео'}</span>
-              <input key={videoInputKey} type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
+              <input
+                key={videoInputKey}
+                type="file"
+                accept={videoAccept}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null
+                  const validationMessage = validateVideoFile(file)
+                  setVideoFile(validationMessage ? null : file)
+                  setMessage(validationMessage ?? '')
+                  if (validationMessage) {
+                    e.target.value = ''
+                  }
+                }}
+              />
             </label>
-            <MediaAttachmentPreview value={videoFile} kind="video" emptyText="Видео пока не выбрано." />
+            <MediaAttachmentPreview value={videoFile} kind="video" emptyText="Видео пока не выбрано." onRemove={() => {
+              setVideoFile(null)
+              setVideoInputKey((key) => key + 1)
+            }} />
             <UploadProgress progress={uploadProgress} />
             <button className="pn-button is-dark" disabled={isUploading || !videoFile}>{isUploading ? 'Загружаем...' : 'Загрузить'}</button>
             {message && isUploadDialogOpen && <p className="pn-text">{message}</p>}

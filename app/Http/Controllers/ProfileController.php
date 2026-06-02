@@ -139,7 +139,12 @@ class ProfileController extends Controller
         abort_if(! $user, 403, 'Нужно войти в аккаунт.');
 
         $request->validate([
-            'avatar' => ['required', 'image', 'max:2048'],
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
+        ], [
+            'avatar.required' => 'Выберите файл.',
+            'avatar.image' => 'Нужно изображение.',
+            'avatar.mimes' => 'Формат не подходит.',
+            'avatar.max' => 'Файл слишком большой.',
         ]);
 
         $path = $request->file('avatar')->store('avatars', 'public');

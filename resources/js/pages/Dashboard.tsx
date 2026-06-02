@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { CompletedLesson, Course, Instrument, UserVideo } from '@/data/courses'
 import { useAuth } from '@/hooks/useAuth'
 import { deleteJson, patchJson, postJson, uploadFormData, type UploadProgressState } from '@/lib/http'
+import { imageAccept, validateImageFile } from '@/lib/uploads'
 
 const profileCoursePageSize = 4
 
@@ -78,6 +79,12 @@ export default function Dashboard({
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
+      return
+    }
+    const validationMessage = validateImageFile(file)
+    if (validationMessage) {
+      setMessage(validationMessage)
+      event.target.value = ''
       return
     }
 
@@ -384,9 +391,9 @@ export default function Dashboard({
             <FieldLabel label="Фото профиля">
               <label className="profile-file-control">
                 <span>{isAvatarUploading ? 'Загружаем фото...' : avatar ? 'Фото прикреплено' : 'Прикрепить фото профиля'}</span>
-                <input type="file" accept="image/*" onChange={uploadAvatar} disabled={isAvatarUploading} />
+                <input type="file" accept={imageAccept} onChange={uploadAvatar} disabled={isAvatarUploading} />
               </label>
-              <MediaAttachmentPreview value={avatar} kind="image" emptyText="Фото профиля пока не выбрано." />
+              <MediaAttachmentPreview value={avatar} kind="image" emptyText="Фото профиля пока не выбрано." onRemove={() => setAvatar('')} />
               <UploadProgress progress={avatarProgress} />
             </FieldLabel>
             <FieldLabel label="Уровень">

@@ -6,6 +6,7 @@ import { initialUploadProgress, UploadProgress } from '@/components/UploadProgre
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { AdminUser, Course, Instrument } from '@/data/courses'
 import { deleteJson, patchJson, postJson, putJson, uploadFormData, type UploadProgressState } from '@/lib/http'
+import { imageAccept, validateImageFile } from '@/lib/uploads'
 import { toast } from 'sonner'
 
 type Tab = 'Курсы' | 'Пользователи' | 'Инструменты'
@@ -16,6 +17,15 @@ const roles: AdminUser['role'][] = ['user', 'teacher', 'moderator', 'admin']
 const teacherStatuses: NonNullable<AdminUser['teacherStatus']>[] = ['ожидает', 'одобрен', 'отклонён']
 const levels = ['Начинающий', 'Базовый', 'Средний']
 const adminPageSize = 8
+const banReasons = [
+  { value: '', label: 'Не забанен' },
+  { value: 'spam', label: 'Спам' },
+  { value: 'abuse', label: 'Оскорбления' },
+  { value: 'rules', label: 'Нарушение правил' },
+  { value: 'security', label: 'Безопасность' },
+  { value: 'other', label: 'Другое' },
+]
+const fixedBanReasonValues = banReasons.map((reason) => reason.value)
 
 export default function Admin({
   adminStats,
@@ -136,19 +146,57 @@ function UsersPanel({ instruments, query, users, onChange }: { instruments: Inst
   const rows = filterRows(users, query, (user) => `${user.name} ${user.email} ${user.role} ${user.instrument}`)
   const page = usePagedRows(rows)
   const [editing, setEditing] = useState<AdminUser | null>(null)
+  const [banning, setBanning] = useState<AdminUser | null>(null)
+  const [banReason, setBanReason] = useState('rules')
+  const [customBanReason, setCustomBanReason] = useState('')
 
-  const toggleBan = async (user: AdminUser) => {
-    const nextState = !user.isBanned
-    const action = nextState ? 'заблокировать' : 'разблокировать'
-    if (!window.confirm(`${action[0].toUpperCase()}${action.slice(1)} пользователя "${user.name || user.email}"?`)) return
-
+  const changeRole = async (user: AdminUser, role: AdminUser['role']) => {
     try {
-      const response = await patchJson<{ user: AdminUser }>(`/api/admin/users/${user.id}/ban`, { isBanned: nextState })
+      const response = await putJson<{ user: AdminUser }>(`/api/admin/users/${user.id}`, {
+        name: user.name || '',
+        email: user.email || '',
+        role,
+        level: user.level,
+        avatar: user.avatar,
+        instrumentIds: user.instrumentIds,
+        teacherStatus: role === 'teacher' ? user.teacherStatus ?? 'ожидает' : null,
+      })
       onChange(users.map((item) => item.id === user.id ? response.user : item))
-      toast.success(nextState ? 'Пользователь заблокирован.' : 'Пользователь разблокирован.')
+      toast.success('Роль обновлена.')
     } catch (error) {
       toast.error(errorMessage(error))
     }
+  }
+
+  const updateBan = async (user: AdminUser, isBanned: boolean, reason?: string | null) => {
+    try {
+      const response = await patchJson<{ user: AdminUser }>(`/api/admin/users/${user.id}/ban`, {
+        isBanned,
+        reason: isBanned ? reason : null,
+      })
+      onChange(users.map((item) => item.id === user.id ? response.user : item))
+      toast.success(isBanned ? 'Пользователь заблокирован.' : 'Пользователь разблокирован.')
+    } catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
+
+  const openBanDialog = (user: AdminUser) => {
+    setBanning(user)
+    setBanReason(banSelectValue(user) === 'other' ? 'other' : user.banReason || 'rules')
+    setCustomBanReason(user.banReason && !fixedBanReasonValues.includes(user.banReason) ? user.banReason : '')
+  }
+
+  const saveBan = async () => {
+    if (!banning) return
+    const reason = banReason === 'other' ? customBanReason.trim() : banReason
+    if (!reason) {
+      toast.error('Укажите причину.')
+      return
+    }
+
+    await updateBan(banning, true, reason)
+    setBanning(null)
   }
 
   return (
@@ -165,12 +213,40 @@ function UsersPanel({ instruments, query, users, onChange }: { instruments: Inst
           }} />}
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(banning)} onOpenChange={(open) => !open && setBanning(null)}>
+        <DialogContent className="profile-dialog admin-modal admin-ban-dialog">
+          <DialogHeader>
+            <DialogTitle>Заблокировать пользователя</DialogTitle>
+            <DialogDescription>{banning?.name || banning?.email || 'Пользователь'} не сможет войти в аккаунт.</DialogDescription>
+          </DialogHeader>
+          <div className="admin-ban-dialog-body">
+            <FieldLabel label="Причина">
+              <select className="pn-select" value={banReason} onChange={(event) => setBanReason(event.target.value)}>
+                {banReasons.filter((reason) => reason.value).map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+              </select>
+            </FieldLabel>
+            {banReason === 'other' && (
+              <FieldLabel label="Комментарий">
+                <textarea className="pn-textarea" value={customBanReason} onChange={(event) => setCustomBanReason(event.target.value)} placeholder="Напишите причину блокировки" />
+              </FieldLabel>
+            )}
+            <div className="editor-actions">
+              <button type="button" className="pn-button is-dark" onClick={saveBan}>Заблокировать</button>
+              <button type="button" className="pn-button" onClick={() => setBanning(null)}>Отмена</button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="admin-table">
         {page.rows.map((user) => (
           <article className="admin-row" key={user.id}>
-            <span><strong>{user.name || 'Без имени'}</strong><em>{user.email || 'без email'} · {roleLabel(user.role)}{user.role === 'teacher' ? ` · ${user.teacherStatus || 'ожидает'}` : ''} · {user.instrument || 'инструмент не выбран'}{user.isBanned ? ' · заблокирован' : ''}</em></span>
-            <button className="pn-button" onClick={() => setEditing(user)}>Редактировать</button>
-            <button className="pn-button" onClick={() => toggleBan(user)}>{user.isBanned ? 'Разбанить' : 'Забанить'}</button>
+            <span><strong>{user.name || 'Без имени'}</strong><em>{user.email || 'без email'} · {roleLabel(user.role)}{user.role === 'teacher' ? ` · ${user.teacherStatus || 'ожидает'}` : ''} · {user.instrument || 'инструмент не выбран'}{user.isBanned ? ` · ${banStatusText(user)}` : ''}</em></span>
+            <select className="pn-select admin-row-select" value={user.role} onChange={(event) => changeRole(user, event.target.value as AdminUser['role'])}>
+              {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+            </select>
+            {user.isBanned
+              ? <button type="button" className="pn-button admin-row-action" onClick={() => updateBan(user, false)}>Разблокировать</button>
+              : <button type="button" className="pn-button admin-row-action" onClick={() => openBanDialog(user)}>Заблокировать</button>}
           </article>
         ))}
       </div>
@@ -218,6 +294,12 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
 
   const uploadAvatar = async (file: File | null) => {
     if (!file) return
+    const validationMessage = validateImageFile(file)
+    if (validationMessage) {
+      toast.error(validationMessage)
+      return
+    }
+
     const data = new FormData()
     data.append('file', file)
     data.append('type', 'avatar')
@@ -242,9 +324,9 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
       <FieldLabel label="Фото профиля">
         <label className="profile-file-control">
           <span>{form.avatar ? 'Фото прикреплено' : 'Прикрепить фото'}</span>
-          <input type="file" accept="image/*" onChange={(event) => uploadAvatar(event.target.files?.[0] ?? null)} />
+          <input type="file" accept={imageAccept} onChange={(event) => uploadAvatar(event.target.files?.[0] ?? null)} />
         </label>
-        <MediaAttachmentPreview value={form.avatar} kind="image" emptyText="Фото пока не выбрано." />
+        <MediaAttachmentPreview value={form.avatar} kind="image" emptyText="Фото пока не выбрано." onRemove={() => setForm((current) => ({ ...current, avatar: '' }))} />
         <UploadProgress progress={uploadProgress} />
       </FieldLabel>
       <FieldLabel label="Роль">
@@ -352,6 +434,12 @@ function InstrumentForm({ instrument, onCancel, onSaved }: { instrument: Instrum
 
   const uploadImage = async (file: File | null) => {
     if (!file) return
+    const validationMessage = validateImageFile(file)
+    if (validationMessage) {
+      toast.error(validationMessage)
+      return
+    }
+
     const data = new FormData()
     data.append('file', file)
     data.append('type', 'image')
@@ -369,15 +457,15 @@ function InstrumentForm({ instrument, onCancel, onSaved }: { instrument: Instrum
 
   return (
     <form className="pn-card pn-card-body admin-edit-form" onSubmit={save}>
-      <FieldLabel label="Slug"><input className="pn-input" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} required /></FieldLabel>
-      <FieldLabel label="Название"><input className="pn-input" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FieldLabel>
+      <FieldLabel label="Slug"><input className="pn-input" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="guitar" required /></FieldLabel>
+      <FieldLabel label="Название"><input className="pn-input" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Гитара" required /></FieldLabel>
       <FieldLabel label="Изображение">
-        <FileControl id={`instrument-image-${form.id || 'new'}`} label={form.image ? 'Изображение прикреплено' : 'Добавить изображение'} accept="image/*" onChange={uploadImage} />
-        <MediaAttachmentPreview value={form.image} kind="image" emptyText="Изображение пока не выбрано." />
+        <FileControl id={`instrument-image-${form.id || 'new'}`} label={form.image ? 'Изображение прикреплено' : 'Добавить изображение'} accept={imageAccept} onChange={uploadImage} />
+        <MediaAttachmentPreview value={form.image} kind="image" emptyText="Изображение пока не выбрано." onRemove={() => setForm((current) => ({ ...current, image: '' }))} />
         <UploadProgress progress={uploadProgress} />
       </FieldLabel>
-      <FieldLabel label="Описание"><textarea className="pn-textarea" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></FieldLabel>
-      <div className="readonly-field"><span>Количество курсов</span><strong>{form.courseCount}</strong><em>Рассчитывается из базы данных</em></div>
+      <FieldLabel label="Описание"><textarea className="pn-textarea" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Коротко опишите направление и что в него входит" required /></FieldLabel>
+      {!isNew && <div className="readonly-field"><span>Количество курсов</span><strong>{form.courseCount}</strong><em>Рассчитывается из базы данных</em></div>}
       <div className="editor-actions">
         <button className="pn-button is-dark">Сохранить</button>
         <button type="button" className="pn-button" onClick={onCancel}>Отмена</button>
@@ -412,6 +500,7 @@ function emptyUser(): AdminUser {
     role: 'user',
     teacherStatus: null,
     isBanned: false,
+    banReason: null,
     instrument: '',
     level: 'Начинающий',
     instrumentIds: [],
@@ -435,9 +524,23 @@ function roleLabel(role: AdminUser['role']) {
   return 'Ученик'
 }
 
+function banSelectValue(user: AdminUser) {
+  if (!user.isBanned) return ''
+  const reason = user.banReason || 'rules'
+  return fixedBanReasonValues.includes(reason) ? reason : 'other'
+}
+
+function banStatusText(user: AdminUser) {
+  const reason = user.banReason?.trim()
+  if (!reason) return 'заблокирован'
+
+  const fixedReason = banReasons.find((item) => item.value === reason)
+  return `заблокирован: ${fixedReason?.label ?? reason}`
+}
+
 function sectionHint(tab: Tab) {
   if (tab === 'Курсы') return 'Создание, редактирование и удаление программ'
-  if (tab === 'Пользователи') return 'Роли, уровни, инструменты и профиль'
+  if (tab === 'Пользователи') return 'Роли и блокировки'
   return 'Каталог направлений и обложки'
 }
 

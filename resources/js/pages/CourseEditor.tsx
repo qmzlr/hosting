@@ -5,6 +5,7 @@ import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import { initialUploadProgress, UploadProgress } from '@/components/UploadProgress'
 import type { Course, Instrument, Lesson } from '@/data/courses'
 import { postJson, putJson, uploadFormData, type UploadProgressState } from '@/lib/http'
+import { imageAccept, validateImageFile, validateVideoFile, videoAccept } from '@/lib/uploads'
 import { toast } from 'sonner'
 
 const emptyCourse: Course = {
@@ -13,7 +14,7 @@ const emptyCourse: Course = {
   author: '',
   category: 'Основы',
   instrument: '',
-  img: '/images/course-theory.jpg',
+  img: '',
   tagline: '',
   shortDescription: '',
   description: [''],
@@ -76,6 +77,13 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
 
   const uploadMedia = async (file: File | null, type: 'image' | 'video', slot: string) => {
     if (!file) return null
+    const validationMessage = type === 'image' ? validateImageFile(file) : validateVideoFile(file)
+    if (validationMessage) {
+      setMessage(validationMessage)
+      toast.error(validationMessage)
+      return null
+    }
+
     const data = new FormData()
     data.append('file', file)
     data.append('type', type)
@@ -102,6 +110,13 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
 
   const attachLessonVideo = async (lesson: Lesson, file: File | null) => {
     if (!file) return
+    const validationMessage = validateVideoFile(file)
+    if (validationMessage) {
+      setMessage(validationMessage)
+      toast.error(validationMessage)
+      return
+    }
+
     const duration = await readVideoDuration(file)
     const needsGeneratedPreview = !lesson.image
     const generatedPreview = needsGeneratedPreview ? await captureVideoPreview(file) : null
@@ -205,18 +220,18 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
             />
             <em>Используется в адресе курса. Например: /courses/{form.id || 'osnovy-gitary'}</em>
           </FieldLabel>
-          <FieldLabel label="Название"><input className="pn-input" value={form.title} onChange={(e) => updateTitle(e.target.value)} required /></FieldLabel>
-          <FieldLabel label="Автор"><input className="pn-input" value={form.author} onChange={(e) => update('author', e.target.value)} required /></FieldLabel>
+          <FieldLabel label="Название"><input className="pn-input" value={form.title} onChange={(e) => updateTitle(e.target.value)} placeholder="Например: Основы гитары" required /></FieldLabel>
+          <FieldLabel label="Автор"><input className="pn-input" value={form.author} onChange={(e) => update('author', e.target.value)} placeholder="Имя преподавателя" required /></FieldLabel>
           <FieldLabel label="Категория">
             <select className="pn-select" value={form.category} onChange={(e) => update('category', e.target.value)} required>
               {categories.map((category) => <option key={category}>{category}</option>)}
             </select>
           </FieldLabel>
-          <FieldLabel label="Подзаголовок"><input className="pn-input" value={form.tagline} onChange={(e) => update('tagline', e.target.value)} required /></FieldLabel>
-          <FieldLabel label="Короткое описание"><textarea className="pn-textarea" value={form.shortDescription} onChange={(e) => update('shortDescription', e.target.value)} required /></FieldLabel>
-          <FieldLabel label="Описание курса"><textarea className="pn-textarea" value={form.description.join('\n')} onChange={(e) => updateLines('description', e.target.value)} required /></FieldLabel>
-          <FieldLabel label="Особенности"><textarea className="pn-textarea" value={form.features.join('\n')} onChange={(e) => updateLines('features', e.target.value)} required /></FieldLabel>
-          <FieldLabel label="Результаты обучения"><textarea className="pn-textarea" value={form.outcomes.join('\n')} onChange={(e) => updateLines('outcomes', e.target.value)} required /></FieldLabel>
+          <FieldLabel label="Подзаголовок"><input className="pn-input" value={form.tagline} onChange={(e) => update('tagline', e.target.value)} placeholder="Короткая фраза для страницы курса" required /></FieldLabel>
+          <FieldLabel label="Короткое описание"><textarea className="pn-textarea" value={form.shortDescription} onChange={(e) => update('shortDescription', e.target.value)} placeholder="2-3 предложения для карточки курса" required /></FieldLabel>
+          <FieldLabel label="Описание курса"><textarea className="pn-textarea" value={form.description.join('\n')} onChange={(e) => updateLines('description', e.target.value)} placeholder="Расскажите, чему научится ученик и как построена программа" required /></FieldLabel>
+          <FieldLabel label="Особенности"><textarea className="pn-textarea" value={form.features.join('\n')} onChange={(e) => updateLines('features', e.target.value)} placeholder={'Каждую особенность пишите с новой строки\nНапример: Практические видеоуроки'} required /></FieldLabel>
+          <FieldLabel label="Результаты обучения"><textarea className="pn-textarea" value={form.outcomes.join('\n')} onChange={(e) => updateLines('outcomes', e.target.value)} placeholder={'Каждый результат пишите с новой строки\nНапример: Играть базовые аккорды'} required /></FieldLabel>
           <FieldLabel label="Инструмент">
             <select className="pn-select" value={form.instrument} onChange={(e) => update('instrument', e.target.value)} required>
               {instruments.map((item) => <option key={item.id}>{item.name}</option>)}
@@ -230,8 +245,8 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
             </select>
           </FieldLabel>
           <FieldLabel label="Обложка курса">
-            <FileControl id="course-image-file" label={form.img ? 'Обложка прикреплена' : 'Прикрепить обложку'} accept="image/*" onChange={(file) => attachCourseMedia(file, 'img')} />
-            <MediaAttachmentPreview value={form.img} kind="image" emptyText="Обложка пока не выбрана." />
+            <FileControl id="course-image-file" label={form.img ? 'Обложка прикреплена' : 'Прикрепить обложку'} accept={imageAccept} onChange={(file) => attachCourseMedia(file, 'img')} />
+            <MediaAttachmentPreview value={form.img} kind="image" emptyText="Обложка пока не выбрана." onRemove={() => update('img', '')} />
             <UploadProgress progress={uploadProgress['course-image'] ?? null} />
           </FieldLabel>
           <SectionTitle title="Уроки" aside={`${lessons.length} блока`} />
@@ -256,17 +271,17 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
           {selectedLesson && (
             <article className="pn-card pn-card-body lesson-editor" key={selectedLesson.id}>
               <div className="pn-meta">Редактируется урок {String(lessons.findIndex((lesson) => lesson.id === selectedLesson.id) + 1).padStart(2, '0')}</div>
-              <FieldLabel label="Название урока"><input className="pn-input" value={selectedLesson.title} onChange={(e) => updateLesson(selectedLesson.id, 'title', e.target.value)} required /></FieldLabel>
-              <FieldLabel label="Описание урока"><textarea className="pn-textarea" value={selectedLesson.description} onChange={(e) => updateLesson(selectedLesson.id, 'description', e.target.value)} required /></FieldLabel>
+              <FieldLabel label="Название урока"><input className="pn-input" value={selectedLesson.title} onChange={(e) => updateLesson(selectedLesson.id, 'title', e.target.value)} placeholder="Например: Посадка и настройка" required /></FieldLabel>
+              <FieldLabel label="Описание урока"><textarea className="pn-textarea" value={selectedLesson.description} onChange={(e) => updateLesson(selectedLesson.id, 'description', e.target.value)} placeholder="Кратко опишите задание, тему и цель урока" required /></FieldLabel>
               <FieldLabel label="Видео урока">
-                <FileControl id={`lesson-video-${selectedLesson.id}`} label={selectedLesson.video ? 'Видео прикреплено' : 'Прикрепить видео'} accept="video/*" onChange={(file) => attachLessonVideo(selectedLesson, file)} />
-                <MediaAttachmentPreview value={selectedLesson.video} kind="video" emptyText="Видео урока пока не выбрано." />
+                <FileControl id={`lesson-video-${selectedLesson.id}`} label={selectedLesson.video ? 'Видео прикреплено' : 'Прикрепить видео'} accept={videoAccept} onChange={(file) => attachLessonVideo(selectedLesson, file)} />
+                <MediaAttachmentPreview value={selectedLesson.video} kind="video" emptyText="Видео урока пока не выбрано." onRemove={() => updateLesson(selectedLesson.id, 'video', '')} />
                 <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}`] ?? null} />
                 <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}-preview-auto`] ?? null} />
               </FieldLabel>
               <FieldLabel label="Превью урока">
-                <FileControl id={`lesson-preview-${selectedLesson.id}`} label={selectedLesson.image ? 'Превью прикреплено' : 'Прикрепить превью'} accept="image/*" onChange={(file) => attachLessonPreview(selectedLesson, file)} />
-                <MediaAttachmentPreview value={selectedLesson.image ?? null} kind="image" emptyText="Если не выбрать превью, оно создастся из видео." />
+                <FileControl id={`lesson-preview-${selectedLesson.id}`} label={selectedLesson.image ? 'Превью прикреплено' : 'Прикрепить превью'} accept={imageAccept} onChange={(file) => attachLessonPreview(selectedLesson, file)} />
+                <MediaAttachmentPreview value={selectedLesson.image ?? null} kind="image" emptyText="Если не выбрать превью, оно создастся из видео." onRemove={() => updateLesson(selectedLesson.id, 'image', '')} />
                 <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}-preview`] ?? null} />
               </FieldLabel>
               <div className="editor-actions">

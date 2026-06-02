@@ -82,6 +82,7 @@ export interface AdminUser {
   role: 'user' | 'admin' | 'moderator' | 'teacher'
   teacherStatus?: 'ожидает' | 'одобрен' | 'отклонён' | null
   isBanned?: boolean
+  banReason?: string | null
   instrument: string | null
   level: string | null
   instrumentIds: string[]

@@ -195,10 +195,11 @@ class PlatformPageController extends Controller
     {
         $courses = $this->allCoursesFor($request);
         $instruments = $this->instrumentsForFrontend();
+        $currentUserId = (int) $request->session()->get('user_id');
 
         return Inertia::render('Admin', [
             'adminStats' => [
-                ['Пользователи', (string) User::query()->count()],
+                ['Пользователи', (string) User::query()->whereKeyNot($currentUserId)->count()],
                 ['Курсы', (string) $courses->count()],
                 ['Инструменты', (string) $instruments->count()],
             ],
@@ -206,6 +207,7 @@ class PlatformPageController extends Controller
             'instruments' => $instruments,
             'users' => User::query()
                 ->with('instruments')
+                ->whereKeyNot($currentUserId)
                 ->orderBy('id')
                 ->get()
                 ->map(fn (User $user) => $this->adminUserPayload($user)),
@@ -497,6 +499,7 @@ class PlatformPageController extends Controller
             'role' => $user->role,
             'teacherStatus' => $user->teacher_status,
             'isBanned' => $user->is_banned,
+            'banReason' => $user->ban_reason,
             'instrument' => $user->instrument,
             'level' => $user->level,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),

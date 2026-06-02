@@ -52,6 +52,12 @@
   textarea {
     font: inherit;
   }
+
+  textarea {
+    max-height: 260px;
+    resize: vertical;
+    overflow: auto;
+  }
 }
 
 @layer components {
@@ -802,7 +808,16 @@
 
   .pn-textarea {
     min-height: 120px;
+    max-height: 260px;
     padding-top: 14px;
+    resize: vertical;
+    overflow: auto;
+  }
+
+  [data-slot="textarea"] {
+    max-height: 260px;
+    resize: vertical;
+    overflow: auto;
   }
 
   .pn-progress {
@@ -1924,7 +1939,43 @@
   }
 
   .admin-row .pn-select {
-    min-width: 180px;
+    min-width: 220px;
+  }
+
+  .admin-row-select {
+    width: 220px;
+    min-height: 46px;
+  }
+
+  .admin-row-action {
+    width: 180px;
+    min-height: 46px;
+  }
+
+  .admin-ban-control {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+  }
+
+  .admin-ban-custom {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .admin-ban-custom .pn-input {
+    min-height: 42px;
+  }
+
+  .admin-ban-custom .pn-button {
+    min-height: 42px;
+    padding-inline: 14px;
+  }
+
+  .admin-ban-dialog-body .form-field + .form-field {
+    margin-top: 18px;
   }
 
   .admin-edit-form {
@@ -2061,7 +2112,8 @@
 
   .attachment-preview__meta span,
   .attachment-preview__meta a,
-  .attachment-preview__open {
+  .attachment-preview__open,
+  .attachment-preview__remove {
     color: #666;
     font-size: 12px;
     text-transform: uppercase;
@@ -2069,7 +2121,8 @@
     text-decoration: none;
   }
 
-  .attachment-preview__open {
+  .attachment-preview__open,
+  .attachment-preview__remove {
     width: fit-content;
     color: #000;
     border-bottom: 1px solid currentColor;
@@ -2079,6 +2132,10 @@
     background: transparent;
     padding: 0 0 2px;
     cursor: pointer;
+  }
+
+  .attachment-preview__remove {
+    color: #7a1f1f;
   }
 
   .attachment-preview__viewer {
@@ -2723,8 +2780,56 @@
     font-weight: 500;
   }
 
+  .teacher-documents-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .teacher-documents-list div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px solid rgba(0,0,0,0.12);
+  }
+
+  .teacher-documents-list span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #061d33;
+    font-size: 12px;
+  }
+
+  .teacher-documents-list button {
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    background: transparent;
+    padding: 0;
+    color: #5b1f1f;
+    font-family: var(--pn-font-main);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
   .teacher-status-card {
     max-width: 760px;
+  }
+
+  .teacher-status-card .pn-section-title {
+    align-items: flex-start;
+  }
+
+  .teacher-status-card .pn-section-title h2 {
+    white-space: nowrap;
+    font-size: clamp(38px, 4vw, 64px);
+    letter-spacing: 0;
+  }
+
+  .teacher-status-card .dashboard-chip-list {
+    margin-top: 18px;
   }
 
   .auth-link {
@@ -3509,5 +3614,39 @@
     right: 18px !important;
     width: 42px;
     height: 42px;
+  }
+}
+
+.profile-dialog [data-slot="dialog-header"] {
+  padding-top: 38px;
+  padding-right: 58px;
+}
+
+.profile-dialog [data-slot="dialog-close"] {
+  z-index: 2;
+}
+
+.profile-dialog [data-slot="dialog-title"] {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row-select,
+  .admin-row .pn-select,
+  .admin-row-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-ban-control {
+    justify-items: stretch;
+  }
+
+  .admin-ban-custom {
+    grid-template-columns: 1fr;
   }
 }

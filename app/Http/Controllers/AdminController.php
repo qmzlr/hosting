@@ -74,10 +74,16 @@ class AdminController extends Controller
 
         $validated = $request->validate([
             'isBanned' => ['required', 'boolean'],
+            'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = User::query()->findOrFail($id);
-        $user->update(['is_banned' => $validated['isBanned']]);
+        $reason = trim((string) ($validated['reason'] ?? ''));
+
+        $user->update([
+            'is_banned' => $validated['isBanned'],
+            'ban_reason' => $validated['isBanned'] ? ($reason !== '' ? $reason : 'rules') : null,
+        ]);
 
         return response()->json(['user' => $this->userPayload($user->fresh())]);
     }
@@ -115,19 +121,19 @@ class AdminController extends Controller
     public function upload(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'file' => ['required', 'file', 'max:102400'],
+            'file' => ['required', 'file'],
             'type' => ['required', Rule::in(['image', 'video', 'avatar'])],
-        ]);
+        ], $this->uploadMessages());
 
         $rules = [
-            'image' => ['image'],
-            'avatar' => ['image'],
-            'video' => ['mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/x-ms-wmv,video/webm'],
+            'image' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
+            'avatar' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
+            'video' => ['mimetypes:video/mp4,video/quicktime,video/webm', 'max:102400'],
         ];
 
         $request->validate([
             'file' => $rules[$validated['type']],
-        ]);
+        ], $this->uploadMessages());
 
         $directory = match ($validated['type']) {
             'avatar' => 'avatars',
@@ -200,11 +206,23 @@ class AdminController extends Controller
             'role' => $user->role,
             'teacherStatus' => $user->teacher_status,
             'isBanned' => $user->is_banned,
+            'banReason' => $user->ban_reason,
             'instrument' => $user->instrument,
             'level' => $user->level,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),
             'createdAt' => $user->createdAt?->toJSON(),
             'lastSignInAt' => $user->lastSignInAt?->toJSON(),
+        ];
+    }
+
+    private function uploadMessages(): array
+    {
+        return [
+            'file.required' => 'Выберите файл.',
+            'file.image' => 'Нужно изображение.',
+            'file.mimes' => 'Формат не подходит.',
+            'file.mimetypes' => 'Формат не подходит.',
+            'file.max' => 'Файл слишком большой.',
         ];
     }
 

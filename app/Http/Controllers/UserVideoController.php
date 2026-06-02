@@ -29,7 +29,12 @@ class UserVideoController extends Controller
             'description' => ['nullable', 'string'],
             'instrument' => ['required', 'string', 'max:128'],
             'image' => ['nullable', 'string', 'max:255'],
-            'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/x-ms-wmv,video/webm', 'max:102400'],
+            'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm', 'max:102400'],
+        ], [
+            'video.required' => 'Выберите видео.',
+            'video.file' => 'Выберите видео.',
+            'video.mimetypes' => 'Формат не подходит.',
+            'video.max' => 'Файл слишком большой.',
         ]);
 
         $videoPath = $request->file('video')->store('videos/community', 'public');

@@ -20,7 +20,7 @@ export default function TeacherStatus({
       />
       <section className="pn-section teacher-status-page">
         <div className="pn-container teacher-status-card pn-card pn-card-body">
-          <SectionTitle title={isRejected ? 'Нужна правка заявки' : 'Ожидает модерации'} aside={status} />
+          <SectionTitle title={isRejected ? 'Нужна правка заявки' : 'Ожидает модерации'} />
           <p className="pn-text">
             Пока статус не станет “одобрен”, публикация курсов недоступна. Выбранные направления уже сохранены в профиле заявки.
           </p>

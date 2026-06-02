@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import type { Instrument } from '@/data/courses'
 import { postFormData, postJson } from '@/lib/http'
+import { documentAccept, validateDocumentFile } from '@/lib/uploads'
 
 export default function Register({ instruments }: { instruments: Instrument[] }) {
   const [message, setMessage] = useState('')
@@ -20,6 +21,38 @@ export default function Register({ instruments }: { instruments: Instrument[] })
   const [selectedIds, setSelectedIds] = useState(() => new Set(instruments[0]?.id ? [instruments[0].id] : []))
   const [level, setLevel] = useState('Начинающий')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const addTeacherDocuments = (files: FileList | null) => {
+    const incoming = Array.from(files ?? [])
+    if (incoming.length === 0) return
+
+    const validFiles: File[] = []
+    for (const file of incoming) {
+      const validationMessage = validateDocumentFile(file)
+      if (validationMessage) {
+        setMessageTone('error')
+        setMessage(`${file.name}: ${validationMessage}`)
+        return
+      }
+      validFiles.push(file)
+    }
+
+    setTeacherDocuments((current) => {
+      const next = [...current, ...validFiles].slice(0, 8)
+      if (current.length + validFiles.length > 8) {
+        setMessageTone('error')
+        setMessage('Можно приложить до 8 файлов.')
+      } else {
+        setMessage('')
+      }
+      return next
+    })
+  }
+
+  const removeTeacherDocument = (index: number) => {
+    setTeacherDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index))
+  }
+
   const toggleInstrument = (id: string) => {
     setSelectedIds((current) => {
       const next = new Set(current)
@@ -173,8 +206,11 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                      onChange={(e) => setTeacherDocuments(Array.from(e.target.files ?? []))}
+                      accept={documentAccept}
+                      onChange={(e) => {
+                        addTeacherDocuments(e.target.files)
+                        e.target.value = ''
+                      }}
                     />
                     <em>
                       Можно приложить до 8 файлов: PDF, изображения, DOC или DOCX. Модератор увидит их вместе с заявкой.
@@ -183,7 +219,17 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                       <strong>{teacherDocuments.length} файл(а) выбрано</strong>
                     )}
                     {teacherDocuments.length > 0 && (
-                      <MediaAttachmentPreview values={teacherDocuments} kind="file" />
+                      <div className="teacher-documents-list">
+                        {teacherDocuments.map((file, index) => (
+                          <div key={`${file.name}-${file.lastModified}-${index}`}>
+                            <span>{file.name}</span>
+                            <button type="button" onClick={() => removeTeacherDocument(index)}>Убрать</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {teacherDocuments.length > 0 && (
+                      <MediaAttachmentPreview values={teacherDocuments} kind="file" onRemoveValue={removeTeacherDocument} />
                     )}
                   </label>
                   <p className="teacher-register-note">После регистрации модератор проверит заявку. Курсы можно будет создавать после одобрения.</p>

@@ -69,6 +69,11 @@ class LocalAuthController extends Controller
             'accountType' => ['sometimes', Rule::in(['student', 'teacher'])],
             'teacherDocuments' => ['sometimes', 'array', 'max:8'],
             'teacherDocuments.*' => ['file', 'max:8192', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
+        ], [
+            'teacherDocuments.max' => 'Можно приложить до 8 файлов.',
+            'teacherDocuments.*.mimes' => 'Формат не подходит.',
+            'teacherDocuments.*.max' => 'Файл слишком большой.',
+            'teacherDocuments.*.file' => 'Выберите файл.',
         ]);
 
         $email = $this->normalizeEmail($validated['email']);
