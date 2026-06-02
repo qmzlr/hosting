@@ -18,7 +18,10 @@ class PlatformSeeder extends Seeder
         $lessonVideos = collect(range(1, 12))
             ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.mp4')
             ->all();
-        $communityImages = collect(range(1, 20))
+        $communityVideos = collect(range(1, 12))
+            ->map(fn (int $index) => '/videos/community/community-video-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
+            ->all();
+        $communityImages = collect(range(1, 12))
             ->map(fn (int $index) => '/images/community/community-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.jpg')
             ->all();
 
@@ -246,27 +249,23 @@ class PlatformSeeder extends Seeder
         }
 
         $videos = [
-            ['title' => 'Перебор на гитаре', 'description' => 'Домашняя практика к уроку 04.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
-            ['title' => 'Аккорды без пауз', 'description' => 'Плавные переходы между C, G и Am.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
-            ['title' => 'Ритмический бой', 'description' => 'Пробую держать ровную восьмую.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
-            ['title' => 'Пиано: две руки', 'description' => 'Запись упражнения на координацию.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
-            ['title' => 'Левая рука отдельно', 'description' => 'Медленная тренировка басовой партии.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
-            ['title' => 'Мини-этюд', 'description' => 'Короткая пьеса с динамикой.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
-            ['title' => 'Первый groove', 'description' => 'Базовый рисунок с метрономом.', 'instrument' => 'Ударные', 'status' => 'опубликовано', 'image' => '/images/course-drums.jpg'],
-            ['title' => 'Fill на четыре доли', 'description' => 'Отрабатываю переход в припев.', 'instrument' => 'Ударные', 'status' => 'опубликовано', 'image' => '/images/course-drums.jpg'],
-            ['title' => 'Практика хай-хэта', 'description' => 'Акцент на слабые доли.', 'instrument' => 'Ударные', 'status' => 'опубликовано', 'image' => '/images/course-drums.jpg'],
-            ['title' => 'Вокальная разминка', 'description' => 'Проверка дыхания и интонации.', 'instrument' => 'Вокал', 'status' => 'опубликовано', 'image' => '/images/course-vocal.jpg'],
-            ['title' => 'Чистая интонация', 'description' => 'Работаю над устойчивыми нотами.', 'instrument' => 'Вокал', 'status' => 'опубликовано', 'image' => '/images/course-vocal.jpg'],
-            ['title' => 'Дыхание перед фразой', 'description' => 'Короткое упражнение на опору.', 'instrument' => 'Вокал', 'status' => 'опубликовано', 'image' => '/images/course-vocal.jpg'],
-            ['title' => 'Укулеле: первый бой', 'description' => 'Простая песня в медленном темпе.', 'instrument' => 'Укулеле', 'status' => 'опубликовано', 'image' => '/images/course-ukulele.jpg'],
-            ['title' => 'Перебор на укулеле', 'description' => 'Практика правой руки.', 'instrument' => 'Укулеле', 'status' => 'опубликовано', 'image' => '/images/course-ukulele.jpg'],
-            ['title' => 'Аккорды C F G', 'description' => 'Переходы без остановки.', 'instrument' => 'Укулеле', 'status' => 'опубликовано', 'image' => '/images/course-ukulele.jpg'],
-            ['title' => 'Интервалы на слух', 'description' => 'Проверяю распознавание терций.', 'instrument' => 'Теория', 'status' => 'опубликовано', 'image' => '/images/course-theory.jpg'],
-            ['title' => 'Разбор тональности', 'description' => 'Нахожу устойчивые ступени.', 'instrument' => 'Теория', 'status' => 'опубликовано', 'image' => '/images/course-theory.jpg'],
-            ['title' => 'Аккордовая цепочка', 'description' => 'Собираю простую гармонию.', 'instrument' => 'Теория', 'status' => 'опубликовано', 'image' => '/images/course-theory.jpg'],
-            ['title' => 'Пиано: новая практика', 'description' => 'Свежая запись ученика.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
-            ['title' => 'Вокал: работа над фразой', 'description' => 'Повтор сложного фрагмента.', 'instrument' => 'Вокал', 'status' => 'опубликовано', 'image' => '/images/course-vocal.jpg'],
+            ['title' => 'Ровный бой: упражнение 1', 'description' => 'Короткая запись с базовым strumming-паттерном. Следите за равномерностью правой руки.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Бой без остановок', 'description' => 'Тренировка непрерывного движения кисти на простом гитарном ритме.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Ритм на открытых струнах', 'description' => 'Практика ровной атаки и одинаковой громкости на каждом ударе.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Медленный strumming', 'description' => 'Разбор спокойного темпа: удобно повторять вместе с метрономом.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Подготовка к бою', 'description' => 'Упражнение для правой руки перед переходом к песням и аккордовым связкам.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Акцент на сильную долю', 'description' => 'Небольшой ритмический фрагмент, чтобы почувствовать первую долю такта.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Бой с устойчивым темпом', 'description' => 'Повторяющийся рисунок для контроля темпа и расслабленной кисти.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Галоп на гитаре', 'description' => 'Более энергичный strumming-паттерн для тренировки плотного движения.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Регги-ритм правой рукой', 'description' => 'Практика смещенного акцента и коротких приглушенных движений.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Песенный бой в среднем темпе', 'description' => 'Ритм для аккомпанемента: держите ровный пульс от начала до конца.', 'instrument' => 'Гитара', 'status' => 'опубликовано', 'image' => '/images/course-guitar.jpg'],
+            ['title' => 'Звучание старого пианино', 'description' => 'Короткий фрагмент с акустическим инструментом: слушайте динамику и атаку.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
+            ['title' => 'Фортепиано в четыре руки', 'description' => 'Пример ансамблевой игры: обратите внимание на синхронность партий.', 'instrument' => 'Фортепиано', 'status' => 'опубликовано', 'image' => '/images/course-piano.jpg'],
         ];
+
+        UserVideo::query()
+            ->whereNotIn('title', collect($videos)->pluck('title')->all())
+            ->delete();
 
         foreach ($videos as $index => $video) {
             UserVideo::query()->updateOrCreate(
@@ -276,7 +275,7 @@ class PlatformSeeder extends Seeder
                     ...$video,
                     'instrument_id' => $instrumentIdsByName[$video['instrument']] ?? null,
                     'image' => $communityImages[$index % count($communityImages)],
-                    'video' => $lessonVideos[$index % count($lessonVideos)],
+                    'video' => $communityVideos[$index % count($communityVideos)],
                 ],
             );
         }

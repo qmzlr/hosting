@@ -17,9 +17,26 @@ $app->make(Kernel::class)->bootstrap();
 $lessonVideos = collect(range(1, 12))
     ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.mp4')
     ->all();
-$communityImages = collect(range(1, 20))
+$communityVideos = collect(range(1, 12))
+    ->map(fn (int $index) => '/videos/community/community-video-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
+    ->all();
+$communityImages = collect(range(1, 12))
     ->map(fn (int $index) => '/images/community/community-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.jpg')
     ->all();
+$communityVideoContent = [
+    ['title' => 'Ровный бой: упражнение 1', 'description' => 'Короткая запись с базовым strumming-паттерном. Следите за равномерностью правой руки.', 'instrument' => 'Гитара'],
+    ['title' => 'Бой без остановок', 'description' => 'Тренировка непрерывного движения кисти на простом гитарном ритме.', 'instrument' => 'Гитара'],
+    ['title' => 'Ритм на открытых струнах', 'description' => 'Практика ровной атаки и одинаковой громкости на каждом ударе.', 'instrument' => 'Гитара'],
+    ['title' => 'Медленный strumming', 'description' => 'Разбор спокойного темпа: удобно повторять вместе с метрономом.', 'instrument' => 'Гитара'],
+    ['title' => 'Подготовка к бою', 'description' => 'Упражнение для правой руки перед переходом к песням и аккордовым связкам.', 'instrument' => 'Гитара'],
+    ['title' => 'Акцент на сильную долю', 'description' => 'Небольшой ритмический фрагмент, чтобы почувствовать первую долю такта.', 'instrument' => 'Гитара'],
+    ['title' => 'Бой с устойчивым темпом', 'description' => 'Повторяющийся рисунок для контроля темпа и расслабленной кисти.', 'instrument' => 'Гитара'],
+    ['title' => 'Галоп на гитаре', 'description' => 'Более энергичный strumming-паттерн для тренировки плотного движения.', 'instrument' => 'Гитара'],
+    ['title' => 'Регги-ритм правой рукой', 'description' => 'Практика смещенного акцента и коротких приглушенных движений.', 'instrument' => 'Гитара'],
+    ['title' => 'Песенный бой в среднем темпе', 'description' => 'Ритм для аккомпанемента: держите ровный пульс от начала до конца.', 'instrument' => 'Гитара'],
+    ['title' => 'Звучание старого пианино', 'description' => 'Короткий фрагмент с акустическим инструментом: слушайте динамику и атаку.', 'instrument' => 'Фортепиано'],
+    ['title' => 'Фортепиано в четыре руки', 'description' => 'Пример ансамблевой игры: обратите внимание на синхронность партий.', 'instrument' => 'Фортепиано'],
+];
 
 $instrumentIdsByName = Instrument::query()->pluck('id', 'name');
 $teachersByName = collect([
@@ -94,12 +111,23 @@ foreach ($courseTeachers as $courseData) {
 
 UserVideo::query()
     ->orderBy('id')
+    ->limit(12)
     ->get()
-    ->each(function (UserVideo $video, int $index) use ($communityImages, $lessonVideos) {
+    ->each(function (UserVideo $video, int $index) use ($communityImages, $communityVideos, $communityVideoContent, $instrumentIdsByName) {
+        $content = $communityVideoContent[$index];
         $video->update([
+            'title' => $content['title'],
+            'description' => $content['description'],
+            'instrument' => $content['instrument'],
+            'instrument_id' => $instrumentIdsByName[$content['instrument']] ?? null,
+            'status' => 'опубликовано',
             'image' => $communityImages[$index % count($communityImages)],
-            'video' => $lessonVideos[$index % count($lessonVideos)],
+            'video' => $communityVideos[$index % count($communityVideos)],
         ]);
     });
+
+UserVideo::query()
+    ->whereNotIn('id', UserVideo::query()->orderBy('id')->limit(12)->pluck('id'))
+    ->delete();
 
 echo "Production content synced.\n";
