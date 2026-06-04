@@ -95,10 +95,14 @@ class Course extends Model
     {
         return $query
             ->where('status', 'опубликовано')
-            ->whereHas('owner', fn (Builder $owner) => $owner
-                ->where('role', 'teacher')
-                ->where('teacher_status', 'одобрен')
-                ->where('is_banned', false));
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('user_id')
+                    ->orWhereHas('owner', fn (Builder $owner) => $owner
+                        ->where('role', 'teacher')
+                        ->where('teacher_status', 'одобрен')
+                        ->where('is_banned', false));
+            });
     }
 
     public function toFrontend(bool $withLessons = true, ?int $userId = null): array

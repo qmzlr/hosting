@@ -64,6 +64,7 @@ Route::prefix('api')->name('api.')->group(function () {
 
     Route::get('/videos', [UserVideoController::class, 'index'])->name('videos.index');
     Route::post('/videos', [UserVideoController::class, 'store'])->middleware('role:user,admin,moderator')->name('videos.store');
+    Route::delete('/videos/{video}', [UserVideoController::class, 'destroy'])->middleware('role:user,admin,moderator')->name('videos.destroy');
     Route::patch('/videos/{video}/status', [UserVideoController::class, 'updateStatus'])->middleware('role:admin,moderator')->name('videos.status');
     Route::patch('/teachers/{teacher}/status', [ModerationController::class, 'updateTeacherStatus'])->middleware('role:admin,moderator')->name('teachers.status');
     Route::patch('/courses/{courseCode}/status', [ModerationController::class, 'updateCourseStatus'])->middleware('role:admin,moderator')->name('courses.status');
@@ -73,9 +74,13 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::post('/comments', [PlatformCommentController::class, 'store'])->middleware('session.auth')->name('comments.store');
     Route::patch('/comments/{comment}/status', [PlatformCommentController::class, 'updateStatus'])->middleware('role:admin,moderator')->name('comments.status');
 
+    Route::middleware('role:admin,teacher')->prefix('admin')->name('admin.')->group(function () {
+        Route::post('/uploads', [AdminController::class, 'upload'])->name('uploads.store');
+        Route::post('/uploads/discard', [AdminController::class, 'discardUpload'])->name('uploads.discard');
+    });
+
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
-        Route::post('/uploads', [AdminController::class, 'upload'])->name('uploads.store');
         Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
         Route::patch('/users/{user}/ban', [AdminController::class, 'updateUserBan'])->name('users.ban');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');

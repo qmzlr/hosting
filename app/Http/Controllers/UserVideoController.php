@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Instrument;
+use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class UserVideoController extends Controller
@@ -29,6 +31,7 @@ class UserVideoController extends Controller
             'description' => ['nullable', 'string'],
             'instrument' => ['required', 'string', 'max:128'],
             'image' => ['nullable', 'string', 'max:255'],
+            'imageFile' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/webp', 'max:10240'],
             'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm', 'max:102400'],
         ], [
             'video.required' => 'Выберите видео.',
@@ -38,12 +41,14 @@ class UserVideoController extends Controller
         ]);
 
         $videoPath = $request->file('video')->store('videos/community', 'public');
+        $imagePath = $request->file('imageFile')?->store('images/community', 'public');
+        unset($validated['imageFile']);
 
         $video = UserVideo::query()->create([
             ...$validated,
             'userId' => $request->session()->get('user_id'),
             'instrument_id' => Instrument::query()->where('name', $validated['instrument'])->value('id'),
-            'image' => $validated['image'] ?? '/images/course-theory.jpg',
+            'image' => $imagePath ? '/storage/'.$imagePath : ($validated['image'] ?? '/images/course-theory.jpg'),
             'video' => '/storage/'.$videoPath,
             'status' => 'на модерации',
         ]);
@@ -65,5 +70,39 @@ class UserVideoController extends Controller
         return response()->json([
             'video' => $video->load('user')->toFrontend(),
         ]);
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $video = UserVideo::query()->findOrFail($id);
+        $user = $this->user($request);
+
+        abort_if(
+            ! $user || ((int) $video->userId !== (int) $user->id && ! in_array($user->role, ['admin', 'moderator'], true)),
+            403,
+            'Доступ запрещён.'
+        );
+
+        $this->deletePublicFile($video->video);
+        $this->deletePublicFile($video->image);
+        $video->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    private function user(Request $request): ?User
+    {
+        $userId = $request->session()->get('user_id');
+
+        return $userId ? User::query()->find($userId) : null;
+    }
+
+    private function deletePublicFile(?string $url): void
+    {
+        if (! $url || ! str_starts_with($url, '/storage/')) {
+            return;
+        }
+
+        Storage::disk('public')->delete(substr($url, strlen('/storage/')));
     }
 }

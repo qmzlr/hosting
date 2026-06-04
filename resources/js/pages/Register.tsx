@@ -1,10 +1,23 @@
 import { router } from '@inertiajs/react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import type { Instrument } from '@/data/courses'
 import { postFormData, postJson } from '@/lib/http'
 import { documentAccept, validateDocumentFile } from '@/lib/uploads'
+
+const urlPattern = /(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})(?:\S*)/i
+const namePattern = /^[\p{L}\s-]+$/u
+
+type RegisterErrors = {
+  name?: string
+  email?: string
+  password?: string
+  passwordConfirmation?: string
+  instruments?: string
+  agreement?: string
+  emailVerificationCode?: string
+}
 
 export default function Register({ instruments }: { instruments: Instrument[] }) {
   const [message, setMessage] = useState('')
@@ -18,9 +31,83 @@ export default function Register({ instruments }: { instruments: Instrument[] })
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [teacherDocuments, setTeacherDocuments] = useState<File[]>([])
-  const [selectedIds, setSelectedIds] = useState(() => new Set(instruments[0]?.id ? [instruments[0].id] : []))
+  const [selectedIds, setSelectedIds] = useState(() => new Set<string>())
   const [level, setLevel] = useState('Начинающий')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [touched, setTouched] = useState<Record<keyof RegisterErrors, boolean>>({
+    name: false,
+    email: false,
+    password: false,
+    passwordConfirmation: false,
+    instruments: false,
+    agreement: false,
+    emailVerificationCode: false,
+  })
+
+  const errors = useMemo<RegisterErrors>(() => {
+    const nextErrors: RegisterErrors = {}
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+
+    if (!trimmedName) {
+      nextErrors.name = 'Введите имя.'
+    } else if (!namePattern.test(trimmedName)) {
+      nextErrors.name = 'Используйте только буквы, пробел и дефис.'
+    } else if (urlPattern.test(trimmedName)) {
+      nextErrors.name = 'Ссылки в имени не допускаются.'
+    }
+
+    if (!trimmedEmail) {
+      nextErrors.email = 'Введите email.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      nextErrors.email = 'Введите корректный email.'
+    }
+
+    if (!password) {
+      nextErrors.password = 'Введите пароль.'
+    } else if (password.length < 6) {
+      nextErrors.password = 'Пароль должен быть не короче 6 символов.'
+    }
+
+    if (!passwordConfirmation) {
+      nextErrors.passwordConfirmation = 'Повторите пароль.'
+    } else if (password && password !== passwordConfirmation) {
+      nextErrors.passwordConfirmation = 'Пароли не совпадают.'
+    }
+
+    if (selectedIds.size === 0) {
+      nextErrors.instruments = 'Выберите хотя бы один инструмент.'
+    }
+
+    if (!agreed) {
+      nextErrors.agreement = 'Подтвердите согласие на обработку персональных данных.'
+    }
+
+    if (isCodeSent && emailVerificationCode.length !== 6) {
+      nextErrors.emailVerificationCode = 'Введите 6 цифр из письма.'
+    }
+
+    return nextErrors
+  }, [agreed, email, emailVerificationCode, isCodeSent, name, password, passwordConfirmation, selectedIds])
+
+  const hasVisibleError = (field: keyof RegisterErrors) => touched[field] && errors[field]
+  const markTouched = (field: keyof RegisterErrors) => {
+    setTouched((current) => ({ ...current, [field]: true }))
+  }
+  const markAllTouched = () => {
+    setTouched({
+      name: true,
+      email: true,
+      password: true,
+      passwordConfirmation: true,
+      instruments: true,
+      agreement: true,
+      emailVerificationCode: true,
+    })
+  }
+  const isCurrentStepValid = isCodeSent
+    ? !errors.emailVerificationCode
+    : !errors.name && !errors.email && !errors.password && !errors.passwordConfirmation && !errors.instruments && !errors.agreement
 
   const addTeacherDocuments = (files: FileList | null) => {
     const incoming = Array.from(files ?? [])
@@ -54,6 +141,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
   }
 
   const toggleInstrument = (id: string) => {
+    markTouched('instruments')
     setSelectedIds((current) => {
       const next = new Set(current)
       if (next.has(id)) {
@@ -63,6 +151,11 @@ export default function Register({ instruments }: { instruments: Instrument[] })
       }
       return next
     })
+  }
+
+  const updateName = (value: string) => {
+    markTouched('name')
+    setName(value.replace(/[^\p{L}\s-]/gu, ''))
   }
 
   return (
@@ -79,9 +172,10 @@ export default function Register({ instruments }: { instruments: Instrument[] })
           className="auth-form"
           onSubmit={async (e) => {
             e.preventDefault()
-            if (!agreed) {
+            markAllTouched()
+            if (!isCurrentStepValid) {
               setMessageTone('error')
-              setMessage('Подтвердите согласие на обработку персональных данных.')
+              setMessage(isCodeSent ? 'Введите код подтверждения из письма.' : 'Проверьте заполненные поля.')
               return
             }
 
@@ -89,14 +183,8 @@ export default function Register({ instruments }: { instruments: Instrument[] })
             setMessage('')
 
             try {
-              if (password !== passwordConfirmation) {
-                setMessageTone('error')
-                setMessage('Пароли не совпадают.')
-                return
-              }
-
               if (!isCodeSent) {
-                await postJson('/register/email-code', { email })
+                await postJson('/register/email-code', { email: email.trim() })
                 setIsCodeSent(true)
                 setMessageTone('info')
                 setMessage('Код подтверждения отправлен на почту. Введите его, чтобы завершить регистрацию.')
@@ -104,8 +192,8 @@ export default function Register({ instruments }: { instruments: Instrument[] })
               }
 
               const body = new FormData()
-              body.append('name', name)
-              body.append('email', email)
+              body.append('name', name.trim())
+              body.append('email', email.trim())
               body.append('emailVerificationCode', emailVerificationCode)
               body.append('password', password)
               body.append('password_confirmation', passwordConfirmation)
@@ -142,11 +230,18 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                 maxLength={6}
                 pattern="[0-9]{6}"
                 value={emailVerificationCode}
-                onChange={(e) => setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => {
+                  markTouched('emailVerificationCode')
+                  setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }}
+                onBlur={() => markTouched('emailVerificationCode')}
                 placeholder="Код из письма"
                 required
                 autoFocus
+                aria-invalid={Boolean(hasVisibleError('emailVerificationCode'))}
+                aria-describedby={hasVisibleError('emailVerificationCode') ? 'register-code-error' : undefined}
               />
+              {hasVisibleError('emailVerificationCode') && <p className="field-error" id="register-code-error">{errors.emailVerificationCode}</p>}
             </div>
           ) : (
             <>
@@ -166,22 +261,72 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                   Учитель
                 </button>
               </div>
-              <input className="pn-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя" required />
+              <input
+                className="pn-input"
+                value={name}
+                onChange={(e) => {
+                  updateName(e.target.value)
+                }}
+                onBlur={() => markTouched('name')}
+                placeholder="Имя"
+                required
+                aria-invalid={Boolean(hasVisibleError('name'))}
+                aria-describedby={hasVisibleError('name') ? 'register-name-error' : undefined}
+              />
+              {hasVisibleError('name') && <p className="field-error" id="register-name-error">{errors.name}</p>}
               <input
                 className="pn-input"
                 type="email"
                 value={email}
                 onChange={(e) => {
+                  markTouched('email')
                   setEmail(e.target.value)
                   setEmailVerificationCode('')
                 }}
+                onBlur={() => markTouched('email')}
                 placeholder="Email"
                 required
+                aria-invalid={Boolean(hasVisibleError('email'))}
+                aria-describedby={hasVisibleError('email') ? 'register-email-error' : undefined}
               />
-              <input className="pn-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Пароль" required />
-              <input className="pn-input" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} placeholder="Подтверждение пароля" required />
+              {hasVisibleError('email') && <p className="field-error" id="register-email-error">{errors.email}</p>}
+              <input
+                className="pn-input"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  markTouched('password')
+                  setPassword(e.target.value)
+                }}
+                onBlur={() => markTouched('password')}
+                placeholder="Пароль"
+                required
+                aria-invalid={Boolean(hasVisibleError('password'))}
+                aria-describedby={hasVisibleError('password') ? 'register-password-error' : undefined}
+              />
+              {hasVisibleError('password') && <p className="field-error" id="register-password-error">{errors.password}</p>}
+              <input
+                className="pn-input"
+                type="password"
+                value={passwordConfirmation}
+                onChange={(e) => {
+                  markTouched('passwordConfirmation')
+                  setPasswordConfirmation(e.target.value)
+                }}
+                onBlur={() => markTouched('passwordConfirmation')}
+                placeholder="Подтверждение пароля"
+                required
+                aria-invalid={Boolean(hasVisibleError('passwordConfirmation'))}
+                aria-describedby={hasVisibleError('passwordConfirmation') ? 'register-password-confirmation-error' : undefined}
+              />
+              {hasVisibleError('passwordConfirmation') && <p className="field-error" id="register-password-confirmation-error">{errors.passwordConfirmation}</p>}
               <div className="pn-meta">{accountType === 'teacher' ? 'Инструменты преподавания' : 'Интересующие инструменты'}</div>
-              <div className="dashboard-chip-list profile-instrument-picker auth-instrument-picker" aria-label="Инструменты">
+              <div
+                className="dashboard-chip-list profile-instrument-picker auth-instrument-picker"
+                aria-label="Инструменты"
+                aria-invalid={Boolean(hasVisibleError('instruments'))}
+                aria-describedby={hasVisibleError('instruments') ? 'register-instruments-error' : undefined}
+              >
                 {instruments.map((instrument) => (
                   <label className={`dashboard-chip ${selectedIds.has(instrument.id) ? 'is-selected' : ''}`} key={instrument.id}>
                     <input
@@ -193,6 +338,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                   </label>
                 ))}
               </div>
+              {hasVisibleError('instruments') && <p className="field-error" id="register-instruments-error">{errors.instruments}</p>}
               {accountType === 'student' ? (
                 <select className="pn-select" value={level} onChange={(e) => setLevel(e.target.value)}>
                   <option>Начинающий</option>
@@ -240,16 +386,23 @@ export default function Register({ instruments }: { instruments: Instrument[] })
                   type="checkbox"
                   checked={agreed}
                   required
-                  onChange={(e) => setAgreed(e.target.checked)}
+                  onChange={(e) => {
+                    markTouched('agreement')
+                    setAgreed(e.target.checked)
+                  }}
+                  onBlur={() => markTouched('agreement')}
+                  aria-invalid={Boolean(hasVisibleError('agreement'))}
+                  aria-describedby={hasVisibleError('agreement') ? 'register-agreement-error' : undefined}
                 />
                 <span>
                   Я согласен на обработку персональных данных и ознакомлен с{' '}
                   <button type="button" onClick={() => router.visit('/privacy')}>политикой конфиденциальности</button>.
                 </span>
               </label>
+              {hasVisibleError('agreement') && <p className="field-error" id="register-agreement-error">{errors.agreement}</p>}
             </>
           )}
-          <button className="pn-button is-dark" disabled={!agreed || isSubmitting || (isCodeSent && emailVerificationCode.length !== 6)}>
+          <button className="pn-button is-dark" disabled={isSubmitting || !isCurrentStepValid}>
             {isSubmitting ? (isCodeSent ? 'Создаем...' : 'Отправляем...') : isCodeSent ? 'Создать аккаунт' : 'Получить код'}
           </button>
           {isCodeSent && (

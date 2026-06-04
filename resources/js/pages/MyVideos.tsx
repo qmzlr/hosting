@@ -27,6 +27,7 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
   const [instrument, setInstrument] = useState(instruments[0]?.name ?? '')
   const [instrumentFilter, setInstrumentFilter] = useState('Все')
   const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [previewFile, setPreviewFile] = useState<File | null>(null)
   const [videoInputKey, setVideoInputKey] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null)
@@ -52,7 +53,11 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
       formData.append('title', title)
       formData.append('description', description)
       formData.append('instrument', instrument)
-      formData.append('image', previewForInstrument(instrument, videos.length))
+      if (previewFile) {
+        formData.append('imageFile', previewFile)
+      } else {
+        formData.append('image', previewForInstrument(instrument, videos.length))
+      }
       formData.append('video', videoFile)
 
       const payload = await uploadFormData<{ video: UserVideo }>('/api/videos', formData, setUploadProgress)
@@ -61,6 +66,7 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
       setTitle('')
       setDescription('')
       setVideoFile(null)
+      setPreviewFile(null)
       setVideoInputKey((value) => value + 1)
       setMessage('Видео отправлено на модерацию.')
       setIsUploadDialogOpen(false)
@@ -183,21 +189,28 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
                 key={videoInputKey}
                 type="file"
                 accept={videoAccept}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0] ?? null
                   const validationMessage = validateVideoFile(file)
                   setVideoFile(validationMessage ? null : file)
+                  setPreviewFile(null)
                   setMessage(validationMessage ?? '')
                   if (validationMessage) {
                     e.target.value = ''
+                    return
+                  }
+                  if (file) {
+                    setPreviewFile(await captureVideoPreview(file))
                   }
                 }}
               />
             </label>
             <MediaAttachmentPreview value={videoFile} kind="video" emptyText="Видео пока не выбрано." onRemove={() => {
               setVideoFile(null)
+              setPreviewFile(null)
               setVideoInputKey((key) => key + 1)
             }} />
+            <MediaAttachmentPreview value={previewFile} kind="image" emptyText="Превью создастся автоматически после выбора видео." onRemove={() => setPreviewFile(null)} />
             <UploadProgress progress={uploadProgress} />
             <button className="pn-button is-dark" disabled={isUploading || !videoFile}>{isUploading ? 'Загружаем...' : 'Загрузить'}</button>
             {message && isUploadDialogOpen && <p className="pn-text">{message}</p>}
@@ -212,4 +225,35 @@ function previewForInstrument(instrument: string, offset: number) {
   const pool = communityPreviewByInstrument[instrument] ?? ['/images/community/community-19.jpg', '/images/community/community-20.jpg']
 
   return pool[offset % pool.length]
+}
+
+function captureVideoPreview(file: File): Promise<File | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    const objectUrl = URL.createObjectURL(file)
+
+    const cleanup = () => URL.revokeObjectURL(objectUrl)
+
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.onloadedmetadata = () => {
+      video.currentTime = Math.min(1, Math.max(0, video.duration / 4))
+    }
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth || 1280
+      canvas.height = video.videoHeight || 720
+      canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((blob) => {
+        cleanup()
+        resolve(blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, '')}-preview.jpg`, { type: 'image/jpeg' }) : null)
+      }, 'image/jpeg', 0.86)
+    }
+    video.onerror = () => {
+      cleanup()
+      resolve(null)
+    }
+    video.src = objectUrl
+  })
 }

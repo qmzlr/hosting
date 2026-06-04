@@ -16,8 +16,17 @@ class PlatformSeeder extends Seeder
     public function run(): void
     {
         $lessonVideos = collect(range(1, 12))
-            ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.mp4')
+            ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
             ->all();
+        $lessonImageFor = fn (string $video): string => str_replace(['/videos/generated/', '.webm'], ['/images/lessons/', '.jpg'], $video);
+        $lessonVideoPools = [
+            'osnovy-gitary' => [$lessonVideos[0], $lessonVideos[1], $lessonVideos[2], $lessonVideos[3], $lessonVideos[4]],
+            'start-na-fortepiano' => [$lessonVideos[5], $lessonVideos[6]],
+            'praktika-na-udarnyh' => [$lessonVideos[7], $lessonVideos[8], $lessonVideos[9]],
+            'trenirovka-vokala' => [$lessonVideos[10], $lessonVideos[11]],
+            'kurs-ukulele' => [$lessonVideos[9], $lessonVideos[3], $lessonVideos[4]],
+            'muzykalnaya-teoriya' => [$lessonVideos[11], $lessonVideos[5], $lessonVideos[6]],
+        ];
         $communityVideos = collect(range(1, 12))
             ->map(fn (int $index) => '/videos/community/community-video-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
             ->all();
@@ -212,6 +221,8 @@ class PlatformSeeder extends Seeder
         foreach ($courses as $courseIndex => $courseData) {
             $lessonTitles = $courseData['lesson_titles'];
             $legacyCode = $courseData['legacy_code'];
+            $pool = $lessonVideoPools[$courseData['code']] ?? $lessonVideos;
+            $courseData['video'] = $pool[0];
             unset($courseData['lesson_titles'], $courseData['legacy_code']);
             $owner = $teachersByName[$courseData['author']] ?? null;
             $courseData['user_id'] = $owner?->id;
@@ -241,7 +252,8 @@ class PlatformSeeder extends Seeder
                     'title' => $title,
                     'description' => 'Короткий практический урок с демонстрацией, заданием для самостоятельной работы и проверкой ритма.',
                     'duration' => (10 + $index * 3).' мин',
-                    'video' => $lessonVideos[(($index + ($courseIndex * 2)) % count($lessonVideos))],
+                    'image' => $lessonImageFor($pool[$index % count($pool)]),
+                    'video' => $pool[$index % count($pool)],
                     'completed' => $index < 2,
                     'position' => $index + 1,
                 ]);

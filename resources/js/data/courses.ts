@@ -13,6 +13,7 @@ export interface Course {
   id: string
   status?: 'черновик' | 'на модерации' | 'опубликовано' | 'отклонено'
   owner?: { id: string; name: string | null; email: string | null } | null
+  teacherId?: string
   title: string
   author: string
   category: string
@@ -50,8 +51,15 @@ export interface Instrument {
   courseCount: number
 }
 
+export interface CourseTeacher {
+  id: string
+  name: string | null
+  email: string | null
+}
+
 export interface UserVideo {
   id: string
+  ownerId?: string | null
   title: string
   description: string
   author: string

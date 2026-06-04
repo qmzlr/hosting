@@ -32,6 +32,7 @@ class UserVideo extends Model
     {
         return [
             'id' => 'uv-'.$this->id,
+            'ownerId' => $this->userId !== null ? (string) $this->userId : null,
             'title' => $this->title,
             'description' => $this->description,
             'author' => $this->user?->name ?: 'PlayNote',

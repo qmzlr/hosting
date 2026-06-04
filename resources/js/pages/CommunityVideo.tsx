@@ -3,7 +3,7 @@ import { router } from '@inertiajs/react'
 import { AppShell, PageHero, SectionTitle } from '@/components/AppShell'
 import type { CommentItem, UserVideo } from '@/data/courses'
 import { useAuth } from '@/hooks/useAuth'
-import { postJson } from '@/lib/http'
+import { deleteJson, postJson } from '@/lib/http'
 
 export default function CommunityVideo({
   canComment,
@@ -16,12 +16,14 @@ export default function CommunityVideo({
   isModerationPreview?: boolean
   video: UserVideo
 }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [items] = useState(comments)
   const [text, setText] = useState('')
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('success')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const canDelete = user && (String(user.id) === String(video.ownerId) || ['admin', 'moderator'].includes(user.role))
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -51,6 +53,22 @@ export default function CommunityVideo({
     }
   }
 
+  const removeVideo = async () => {
+    if (!window.confirm('Удалить видео? Это действие нельзя отменить.')) return
+
+    setIsDeleting(true)
+    setMessage('')
+
+    try {
+      await deleteJson<{ success: boolean }>(`/api/videos/${numericId(video.id)}`)
+      router.visit(user?.role === 'admin' || user?.role === 'moderator' ? '/moderator' : '/profile')
+    } catch (error) {
+      setMessageTone('error')
+      setMessage(error instanceof Error ? error.message : 'Не удалось удалить видео.')
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <AppShell>
       <PageHero eyebrow={`${video.instrument} · ${video.author}`} title={video.title} text={video.description || 'Видео сообщества PlayNote'} image={video.image} />
@@ -69,6 +87,11 @@ export default function CommunityVideo({
                 <strong>{video.author}</strong>
               </div>
             </div>
+            {canDelete && (
+              <button className="pn-button is-danger community-video-delete" onClick={removeVideo} disabled={isDeleting}>
+                {isDeleting ? 'Удаляем...' : 'Удалить видео'}
+              </button>
+            )}
           </article>
           <aside className="community-video-sidebar">
             {isModerationPreview && (

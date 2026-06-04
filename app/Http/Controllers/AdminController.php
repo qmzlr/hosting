@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Course;
 use App\Models\Instrument;
+use App\Models\Lesson;
 use App\Models\PlatformComment;
 use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -148,6 +151,32 @@ class AdminController extends Controller
         ]);
     }
 
+    public function discardUpload(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'path' => ['required', 'string', 'max:1024'],
+        ]);
+
+        $path = $this->publicStoragePath($validated['path']);
+
+        abort_if(! $path, 422, 'Можно удалять только файлы из storage.');
+
+        if ($this->isPublicStoragePathReferenced($path)) {
+            return response()->json([
+                'success' => true,
+                'deleted' => false,
+                'message' => 'Файл уже используется на сайте.',
+            ]);
+        }
+
+        Storage::disk('public')->delete($path);
+
+        return response()->json([
+            'success' => true,
+            'deleted' => true,
+        ]);
+    }
+
     private function validatedUser(Request $request, ?User $user = null): array
     {
         return $request->validate([
@@ -240,5 +269,60 @@ class AdminController extends Controller
         }
 
         return $payload;
+    }
+
+    private function publicStoragePath(string $value): ?string
+    {
+        $path = parse_url($value, PHP_URL_PATH) ?: $value;
+
+        if (! str_starts_with($path, '/storage/')) {
+            return null;
+        }
+
+        $path = trim(str_replace('\\', '/', substr($path, strlen('/storage/'))), '/');
+
+        if ($path === '' || str_contains($path, '..')) {
+            return null;
+        }
+
+        return $path;
+    }
+
+    private function isPublicStoragePathReferenced(string $path): bool
+    {
+        $storageUrl = '/storage/'.$path;
+
+        if (Course::query()->where('image', $storageUrl)->orWhere('video', $storageUrl)->exists()) {
+            return true;
+        }
+
+        if (Lesson::query()->where('image', $storageUrl)->orWhere('video', $storageUrl)->exists()) {
+            return true;
+        }
+
+        if (Instrument::query()->where('image', $storageUrl)->exists()) {
+            return true;
+        }
+
+        if (UserVideo::query()->where('image', $storageUrl)->orWhere('video', $storageUrl)->exists()) {
+            return true;
+        }
+
+        if (User::query()->where('avatar', $storageUrl)->exists()) {
+            return true;
+        }
+
+        return User::query()
+            ->whereNotNull('teacher_documents')
+            ->get(['teacher_documents'])
+            ->contains(function (User $user) use ($path): bool {
+                foreach ($user->teacher_documents ?? [] as $document) {
+                    if (is_array($document) && trim((string) ($document['path'] ?? ''), '/') === $path) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
     }
 }

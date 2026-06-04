@@ -307,7 +307,10 @@ export default function Dashboard({
 
               <Panel title="Видео сообщества">
                 {userVideos.slice(0, 2).map((video) => (
-                  <div className="dashboard-row" key={video.id}>{video.title} · {video.status}</div>
+                  <button className="dashboard-row dashboard-video-row" key={video.id} onClick={() => router.visit(video.detailUrl ?? '/community')}>
+                    <span>{video.title}</span>
+                    <em>{video.status}</em>
+                  </button>
                 ))}
                 {userVideos.length === 0 && <p className="pn-text">Ваши видео появятся после загрузки.</p>}
               </Panel>

@@ -20,7 +20,7 @@ class PlatformPageController extends Controller
     public function home(Request $request): Response
     {
         return Inertia::render('Home', [
-            'courses' => $this->coursesFor($request),
+            'courses' => $this->popularCoursesFor($request),
         ]);
     }
 
@@ -267,6 +267,20 @@ class PlatformPageController extends Controller
         return Inertia::render('CourseEditor', [
             'course' => $course?->toFrontend(true, $user->id),
             'instruments' => $this->instrumentsForFrontend(),
+            'teachers' => $user->role === 'admin'
+                ? User::query()
+                    ->where('role', 'teacher')
+                    ->where('teacher_status', 'одобрен')
+                    ->where('is_banned', false)
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (User $teacher) => [
+                        'id' => (string) $teacher->id,
+                        'name' => $teacher->name,
+                        'email' => $teacher->email,
+                    ])
+                    ->values()
+                : [],
             'workspace' => $user->role === 'teacher' ? 'teacher' : 'admin',
         ]);
     }
@@ -298,6 +312,22 @@ class PlatformPageController extends Controller
             ->with(['lessonList', 'owner'])
             ->publiclyVisible()
             ->orderBy('code')
+            ->get()
+            ->map(fn (Course $course) => $course->toFrontend(true, $userId));
+    }
+
+    private function popularCoursesFor(Request $request)
+    {
+        $userId = $this->userId($request);
+
+        return Course::query()
+            ->with(['lessonList', 'owner'])
+            ->withCount('enrollments')
+            ->publiclyVisible()
+            ->orderByDesc('enrollments_count')
+            ->orderByDesc('lesson_count')
+            ->orderBy('code')
+            ->limit(4)
             ->get()
             ->map(fn (Course $course) => $course->toFrontend(true, $userId));
     }
@@ -459,9 +489,10 @@ class PlatformPageController extends Controller
         }
 
         if ($course->status === 'опубликовано') {
-            return $course->owner?->role === 'teacher'
+            return $course->user_id === null
+                || ($course->owner?->role === 'teacher'
                 && $course->owner?->teacher_status === 'одобрен'
-                && ! $course->owner?->is_banned;
+                && ! $course->owner?->is_banned);
         }
 
         return $user?->role === 'teacher' && (int) $course->user_id === (int) $user->id;

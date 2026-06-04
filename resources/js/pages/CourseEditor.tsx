@@ -1,9 +1,9 @@
 import { router } from '@inertiajs/react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AppShell, PageHero, SectionTitle } from '@/components/AppShell'
 import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import { initialUploadProgress, UploadProgress } from '@/components/UploadProgress'
-import type { Course, Instrument, Lesson } from '@/data/courses'
+import type { Course, CourseTeacher, Instrument, Lesson } from '@/data/courses'
 import { postJson, putJson, uploadFormData, type UploadProgressState } from '@/lib/http'
 import { imageAccept, validateImageFile, validateVideoFile, videoAccept } from '@/lib/uploads'
 import { toast } from 'sonner'
@@ -26,19 +26,33 @@ const emptyCourse: Course = {
   progress: 0,
   video: '/videos/spatial.mp4',
   lessonList: [],
+  teacherId: '',
 }
 
 type Workspace = 'admin' | 'teacher'
 const categories = ['Основы', 'Ритм', 'Техника', 'Песни', 'Теория']
 
-export default function CourseEditor({ course, instruments, workspace = 'admin' }: { course?: Course | null; instruments: Instrument[]; workspace?: Workspace }) {
-  const baseCourse = course ?? { ...emptyCourse, instrument: instruments[0]?.name ?? '' }
+export default function CourseEditor({
+  course,
+  instruments,
+  teachers = [],
+  workspace = 'admin',
+}: {
+  course?: Course | null
+  instruments: Instrument[]
+  teachers?: CourseTeacher[]
+  workspace?: Workspace
+}) {
+  const baseCourse = course
+    ? { ...course, teacherId: course.owner?.id ?? '' }
+    : { ...emptyCourse, instrument: instruments[0]?.name ?? '' }
   const [form, setForm] = useState(baseCourse)
   const [lessons, setLessons] = useState<Lesson[]>(baseCourse.lessonList.length > 0 ? baseCourse.lessonList : [newLesson()])
   const [selectedLessonId, setSelectedLessonId] = useState(() => (baseCourse.lessonList[0] ?? newLesson()).id)
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgressState | null>>({})
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const pendingUploads = useRef(new Set<string>())
   const isEditing = Boolean(course)
   const basePath = workspace === 'teacher' ? '/teacher/courses' : '/admin/courses'
   const backUrl = workspace === 'teacher' ? '/teacher?section=courses' : '/admin?section=courses'
@@ -61,7 +75,17 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     })
   }
 
-  const updateLines = (field: 'description' | 'features' | 'outcomes', value: string) => {
+  const updateTeacher = (teacherId: string) => {
+    const teacher = teachers.find((item) => item.id === teacherId)
+
+    setForm((current) => ({
+      ...current,
+      teacherId,
+      author: teacher ? (teacher.name || teacher.email || current.author) : current.author,
+    }))
+  }
+
+  const updateLines = (field: 'description' | 'outcomes', value: string) => {
     setForm((current) => ({ ...current, [field]: value.split('\n') }))
   }
 
@@ -75,11 +99,38 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     setUploadProgress((current) => ({ ...current, [slot]: progress }))
   }
 
+  const rememberUpload = (path: string) => {
+    if (path.startsWith('/storage/')) {
+      pendingUploads.current.add(path)
+    }
+  }
+
+  const discardUpload = async (path?: string | null) => {
+    if (!path || !pendingUploads.current.has(path)) return
+
+    try {
+      await postJson('/api/admin/uploads/discard', { path })
+    } catch {
+      return
+    }
+
+    pendingUploads.current.delete(path)
+  }
+
+  const discardPendingUploads = async () => {
+    const paths = Array.from(pendingUploads.current)
+    await Promise.all(paths.map((path) => discardUpload(path)))
+  }
+
+  const leaveEditor = async () => {
+    await discardPendingUploads()
+    router.visit(backUrl)
+  }
+
   const uploadMedia = async (file: File | null, type: 'image' | 'video', slot: string) => {
     if (!file) return null
     const validationMessage = type === 'image' ? validateImageFile(file) : validateVideoFile(file)
     if (validationMessage) {
-      setMessage(validationMessage)
       toast.error(validationMessage)
       return null
     }
@@ -91,10 +142,11 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
 
     try {
       const response = await uploadFormData<{ path: string }>('/api/admin/uploads', data, (progress) => setSlotProgress(slot, progress))
+      setSlotProgress(slot, null)
+      rememberUpload(response.path)
       return response.path
     } catch (error) {
       setSlotProgress(slot, uploadProgress[slot] ? { ...uploadProgress[slot]!, status: 'error' } : null)
-      setMessage(error instanceof Error ? error.message : 'Не удалось загрузить файл.')
       toast.error(error instanceof Error ? error.message : 'Не удалось загрузить файл.')
       return null
     }
@@ -103,6 +155,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
   const attachCourseMedia = async (file: File | null, field: 'img' | 'video') => {
     const path = await uploadMedia(file, field === 'img' ? 'image' : 'video', field === 'img' ? 'course-image' : 'course-video')
     if (path) {
+      await discardUpload(String(form[field] ?? ''))
       update(field, path)
       toast.success(field === 'img' ? 'Обложка прикреплена.' : 'Видео-превью прикреплено.')
     }
@@ -112,7 +165,6 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     if (!file) return
     const validationMessage = validateVideoFile(file)
     if (validationMessage) {
-      setMessage(validationMessage)
       toast.error(validationMessage)
       return
     }
@@ -125,6 +177,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     const generatedPreviewPath = generatedPreview
       ? await uploadMedia(generatedPreview, 'image', `lesson-${lesson.id}-preview-auto`)
       : null
+    await discardUpload(lesson.video)
     setLessons((items) => items.map((item) => item.id === lesson.id ? {
       ...item,
       video: path,
@@ -137,6 +190,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
   const attachLessonPreview = async (lesson: Lesson, file: File | null) => {
     const path = await uploadMedia(file, 'image', `lesson-${lesson.id}-preview`)
     if (!path) return
+    await discardUpload(lesson.image)
     updateLesson(lesson.id, 'image', path)
     toast.success('Превью урока прикреплено.')
   }
@@ -152,6 +206,8 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
     const nextLessons = lessons.filter((lesson) => lesson.id !== selectedLesson.id)
     const nextLesson = nextLessons[Math.max(0, currentIndex - 1)] ?? nextLessons[0]
 
+    void discardUpload(selectedLesson.video)
+    void discardUpload(selectedLesson.image)
     setLessons(nextLessons)
     setSelectedLessonId(nextLesson.id)
     toast.success('Урок удалён.')
@@ -170,6 +226,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
       outcomes: lines(form.outcomes),
       lessonCount: lessons.length,
       lessons: `${lessons.length} ${lessons.length === 1 ? 'урок' : 'уроков'}`,
+      teacherId: workspace === 'admin' ? (form.teacherId || null) : undefined,
       lessonList: lessons.map((lesson, index) => ({
         ...lesson,
         id: lessonCode(form.id, index),
@@ -181,9 +238,10 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
         ? await putJson<{ course: Course }>(`/api/courses/${course!.id}`, payload)
         : await postJson<{ course: Course }>('/api/courses', payload)
 
-      setForm(response.course)
+      setForm({ ...response.course, teacherId: response.course.owner?.id ?? '' })
       setLessons(response.course.lessonList)
-      setMessage('Курс сохранён.')
+      pendingUploads.current.clear()
+      setMessage('')
       toast.success('Курс сохранён.')
 
       if (!isEditing || response.course.id !== course?.id) {
@@ -208,7 +266,7 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
       <section className="pn-section">
         <form className="pn-container editor-form" onSubmit={save}>
           <div className="editor-topbar">
-            <button type="button" className="pn-button" onClick={() => router.visit(backUrl)}>Назад</button>
+            <button type="button" className="pn-button" onClick={leaveEditor}>Назад</button>
           </div>
           <SectionTitle title="Данные курса" aside="Форма" />
           <FieldLabel label="Код курса для ссылки">
@@ -221,7 +279,20 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
             <em>Используется в адресе курса. Например: /courses/{form.id || 'osnovy-gitary'}</em>
           </FieldLabel>
           <FieldLabel label="Название"><input className="pn-input" value={form.title} onChange={(e) => updateTitle(e.target.value)} placeholder="Например: Основы гитары" required /></FieldLabel>
-          <FieldLabel label="Автор"><input className="pn-input" value={form.author} onChange={(e) => update('author', e.target.value)} placeholder="Имя преподавателя" required /></FieldLabel>
+          <FieldLabel label="Автор"><input className="pn-input" value={form.author} onChange={(e) => update('author', e.target.value)} placeholder="Имя преподавателя" disabled={workspace === 'admin' && Boolean(form.teacherId)} required /></FieldLabel>
+          {workspace === 'admin' && (
+            <FieldLabel label="Учитель курса">
+              <select className="pn-select" value={form.teacherId ?? ''} onChange={(e) => updateTeacher(e.target.value)}>
+                <option value="">Без привязки к учителю</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.name || teacher.email || `Учитель #${teacher.id}`}
+                  </option>
+                ))}
+              </select>
+              <em>Если выбрать учителя, курс появится как его опубликованный курс, а автор возьмется из профиля.</em>
+            </FieldLabel>
+          )}
           <FieldLabel label="Категория">
             <select className="pn-select" value={form.category} onChange={(e) => update('category', e.target.value)} required>
               {categories.map((category) => <option key={category}>{category}</option>)}
@@ -230,7 +301,6 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
           <FieldLabel label="Подзаголовок"><input className="pn-input" value={form.tagline} onChange={(e) => update('tagline', e.target.value)} placeholder="Короткая фраза для страницы курса" required /></FieldLabel>
           <FieldLabel label="Короткое описание"><textarea className="pn-textarea" value={form.shortDescription} onChange={(e) => update('shortDescription', e.target.value)} placeholder="2-3 предложения для карточки курса" required /></FieldLabel>
           <FieldLabel label="Описание курса"><textarea className="pn-textarea" value={form.description.join('\n')} onChange={(e) => updateLines('description', e.target.value)} placeholder="Расскажите, чему научится ученик и как построена программа" required /></FieldLabel>
-          <FieldLabel label="Особенности"><textarea className="pn-textarea" value={form.features.join('\n')} onChange={(e) => updateLines('features', e.target.value)} placeholder={'Каждую особенность пишите с новой строки\nНапример: Практические видеоуроки'} required /></FieldLabel>
           <FieldLabel label="Результаты обучения"><textarea className="pn-textarea" value={form.outcomes.join('\n')} onChange={(e) => updateLines('outcomes', e.target.value)} placeholder={'Каждый результат пишите с новой строки\nНапример: Играть базовые аккорды'} required /></FieldLabel>
           <FieldLabel label="Инструмент">
             <select className="pn-select" value={form.instrument} onChange={(e) => update('instrument', e.target.value)} required>
@@ -246,7 +316,11 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
           </FieldLabel>
           <FieldLabel label="Обложка курса">
             <FileControl id="course-image-file" label={form.img ? 'Обложка прикреплена' : 'Прикрепить обложку'} accept={imageAccept} onChange={(file) => attachCourseMedia(file, 'img')} />
-            <MediaAttachmentPreview value={form.img} kind="image" emptyText="Обложка пока не выбрана." onRemove={() => update('img', '')} />
+            <MediaAttachmentPreview value={form.img} kind="image" emptyText="Обложка пока не выбрана." onRemove={() => {
+              void discardUpload(form.img)
+              update('img', '')
+              setSlotProgress('course-image', null)
+            }} />
             <UploadProgress progress={uploadProgress['course-image'] ?? null} />
           </FieldLabel>
           <SectionTitle title="Уроки" aside={`${lessons.length} блока`} />
@@ -275,13 +349,22 @@ export default function CourseEditor({ course, instruments, workspace = 'admin' 
               <FieldLabel label="Описание урока"><textarea className="pn-textarea" value={selectedLesson.description} onChange={(e) => updateLesson(selectedLesson.id, 'description', e.target.value)} placeholder="Кратко опишите задание, тему и цель урока" required /></FieldLabel>
               <FieldLabel label="Видео урока">
                 <FileControl id={`lesson-video-${selectedLesson.id}`} label={selectedLesson.video ? 'Видео прикреплено' : 'Прикрепить видео'} accept={videoAccept} onChange={(file) => attachLessonVideo(selectedLesson, file)} />
-                <MediaAttachmentPreview value={selectedLesson.video} kind="video" emptyText="Видео урока пока не выбрано." onRemove={() => updateLesson(selectedLesson.id, 'video', '')} />
+                <MediaAttachmentPreview value={selectedLesson.video} kind="video" emptyText="Видео урока пока не выбрано." onRemove={() => {
+                  void discardUpload(selectedLesson.video)
+                  updateLesson(selectedLesson.id, 'video', '')
+                  setSlotProgress(`lesson-${selectedLesson.id}`, null)
+                  setSlotProgress(`lesson-${selectedLesson.id}-preview-auto`, null)
+                }} />
                 <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}`] ?? null} />
-                <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}-preview-auto`] ?? null} />
               </FieldLabel>
               <FieldLabel label="Превью урока">
                 <FileControl id={`lesson-preview-${selectedLesson.id}`} label={selectedLesson.image ? 'Превью прикреплено' : 'Прикрепить превью'} accept={imageAccept} onChange={(file) => attachLessonPreview(selectedLesson, file)} />
-                <MediaAttachmentPreview value={selectedLesson.image ?? null} kind="image" emptyText="Если не выбрать превью, оно создастся из видео." onRemove={() => updateLesson(selectedLesson.id, 'image', '')} />
+                <MediaAttachmentPreview value={selectedLesson.image ?? null} kind="image" emptyText="Если не выбрать превью, оно создастся из видео." onRemove={() => {
+                  void discardUpload(selectedLesson.image)
+                  updateLesson(selectedLesson.id, 'image', '')
+                  setSlotProgress(`lesson-${selectedLesson.id}-preview`, null)
+                  setSlotProgress(`lesson-${selectedLesson.id}-preview-auto`, null)
+                }} />
                 <UploadProgress progress={uploadProgress[`lesson-${selectedLesson.id}-preview`] ?? null} />
               </FieldLabel>
               <div className="editor-actions">

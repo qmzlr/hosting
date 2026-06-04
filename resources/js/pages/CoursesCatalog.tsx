@@ -11,7 +11,6 @@ export default function CoursesCatalog({ courses }: { courses: Course[] }) {
   const [instrument, setInstrument] = useState(initialInstrument)
   const [level, setLevel] = useState(all)
   const [category, setCategory] = useState(all)
-  const [visible, setVisible] = useState(6)
 
   const instruments = [all, ...Array.from(new Set(courses.map((course) => course.instrument)))]
   const levels = [all, ...Array.from(new Set(courses.map((course) => course.level)))]
@@ -28,8 +27,6 @@ export default function CoursesCatalog({ courses }: { courses: Course[] }) {
       return matchesQuery && matchesInstrument && matchesLevel && matchesCategory
     })
   }, [category, instrument, level, query, courses])
-
-  const visibleCourses = filtered.slice(0, visible)
 
   return (
     <AppShell>
@@ -51,16 +48,11 @@ export default function CoursesCatalog({ courses }: { courses: Course[] }) {
             <Filter label="Уровень" value={level} onChange={setLevel} options={levels} />
             <Filter label="Категория" value={category} onChange={setCategory} options={categories} />
           </div>
-          <div className={`pn-grid catalog-grid ${visibleCourses.length <= 2 ? 'is-compact' : ''}`}>
-            {visibleCourses.map((course) => (
+          <div className={`pn-grid catalog-grid ${filtered.length <= 2 ? 'is-compact' : ''}`}>
+            {filtered.map((course) => (
               <CourseCard key={course.id} course={course} />
             ))}
           </div>
-          {visibleCourses.length < filtered.length && (
-            <button className="pn-button catalog-more" onClick={() => setVisible((value) => value + 3)}>
-              Показать ещё
-            </button>
-          )}
         </div>
       </section>
     </AppShell>

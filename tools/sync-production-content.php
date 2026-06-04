@@ -15,8 +15,17 @@ $app = require __DIR__.'/../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
 $lessonVideos = collect(range(1, 12))
-    ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.mp4')
+    ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
     ->all();
+$lessonImageFor = fn (string $video): string => str_replace(['/videos/generated/', '.webm'], ['/images/lessons/', '.jpg'], $video);
+$lessonVideoPools = [
+    'osnovy-gitary' => [$lessonVideos[0], $lessonVideos[1], $lessonVideos[2], $lessonVideos[3], $lessonVideos[4]],
+    'start-na-fortepiano' => [$lessonVideos[5], $lessonVideos[6]],
+    'praktika-na-udarnyh' => [$lessonVideos[7], $lessonVideos[8], $lessonVideos[9]],
+    'trenirovka-vokala' => [$lessonVideos[10], $lessonVideos[11]],
+    'kurs-ukulele' => [$lessonVideos[9], $lessonVideos[3], $lessonVideos[4]],
+    'muzykalnaya-teoriya' => [$lessonVideos[11], $lessonVideos[5], $lessonVideos[6]],
+];
 $communityVideos = collect(range(1, 12))
     ->map(fn (int $index) => '/videos/community/community-video-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
     ->all();
@@ -88,16 +97,21 @@ foreach ($courseTeachers as $courseIndex => $courseData) {
         continue;
     }
 
+    $pool = $lessonVideoPools[$courseData['code']] ?? $lessonVideos;
+
     $course->update([
         'code' => $courseData['code'],
         'user_id' => $teacher->id,
         'author' => $teacher->name,
+        'video' => $pool[0],
     ]);
 
     foreach ($course->lessonList as $index => $lesson) {
+        $video = $pool[$index % count($pool)];
         $lesson->update([
             'code' => 'course-'.$courseData['code'].'-'.($index + 1),
-            'video' => $lessonVideos[(($index + ($courseIndex * 2)) % count($lessonVideos))],
+            'image' => $lessonImageFor($video),
+            'video' => $video,
         ]);
     }
 }

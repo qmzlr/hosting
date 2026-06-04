@@ -58,18 +58,22 @@ class LocalAuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', 'regex:/^[\pL\s-]+$/u', 'not_regex:/(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i'],
             'email' => ['required', 'email', 'max:320', 'unique:users,email'],
             'emailVerificationCode' => ['required', 'string', 'size:6'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'instrument' => ['nullable', 'string', 'max:128'],
-            'instrumentIds' => ['sometimes', 'array'],
+            'instrumentIds' => ['required', 'array', 'min:1'],
             'instrumentIds.*' => ['string', Rule::exists('instruments', 'slug')],
             'level' => ['nullable', 'string', 'max:64'],
             'accountType' => ['sometimes', Rule::in(['student', 'teacher'])],
             'teacherDocuments' => ['sometimes', 'array', 'max:8'],
             'teacherDocuments.*' => ['file', 'max:8192', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
         ], [
+            'name.not_regex' => 'Ссылки в имени не допускаются.',
+            'name.regex' => 'Используйте только буквы, пробел и дефис.',
+            'instrumentIds.required' => 'Выберите хотя бы один инструмент.',
+            'instrumentIds.min' => 'Выберите хотя бы один инструмент.',
             'teacherDocuments.max' => 'Можно приложить до 8 файлов.',
             'teacherDocuments.*.mimes' => 'Формат не подходит.',
             'teacherDocuments.*.max' => 'Файл слишком большой.',

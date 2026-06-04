@@ -54,7 +54,7 @@ class CourseController extends Controller
         $this->syncLessons($course, $lessons);
 
         return response()->json([
-            'course' => $course->load('lessonList')->toFrontend(),
+            'course' => $course->load(['lessonList', 'owner'])->toFrontend(),
         ], 201);
     }
 
@@ -76,7 +76,7 @@ class CourseController extends Controller
         }
 
         return response()->json([
-            'course' => $course->load('lessonList')->toFrontend(),
+            'course' => $course->load(['lessonList', 'owner'])->toFrontend(),
         ]);
     }
 
@@ -107,13 +107,21 @@ class CourseController extends Controller
             'tagline' => ['required', 'string', 'max:255'],
             'shortDescription' => ['required', 'string'],
             'description' => ['required', 'array'],
-            'features' => ['required', 'array'],
+            'features' => ['sometimes', 'array'],
             'outcomes' => ['required', 'array'],
             'lessons' => ['required', 'string', 'max:128'],
             'lessonCount' => ['required', 'integer', 'min:0'],
             'level' => ['required', 'string', 'max:128'],
             'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
             'video' => ['required', 'string', 'max:255'],
+            'teacherId' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query
+                    ->where('role', 'teacher')
+                    ->where('teacher_status', 'одобрен')
+                    ->where('is_banned', false)),
+            ],
             'lessonList' => ['sometimes', 'array'],
             'lessonList.*.id' => ['required_with:lessonList', 'string', 'max:96'],
             'lessonList.*.title' => ['required_with:lessonList', 'string', 'max:255'],
@@ -128,21 +136,32 @@ class CourseController extends Controller
     private function toDatabasePayload(array $payload, ?Course $existing = null, ?User $user = null): array
     {
         $isTeacher = $user?->role === 'teacher';
+        $assignedTeacher = null;
+
+        if (! $isTeacher && ! empty($payload['teacherId'])) {
+            $assignedTeacher = User::query()
+                ->where('role', 'teacher')
+                ->where('teacher_status', 'одобрен')
+                ->where('is_banned', false)
+                ->find((int) $payload['teacherId']);
+        }
 
         return [
             'code' => $payload['id'],
-            'user_id' => $existing?->user_id ?? ($isTeacher ? $user?->id : null),
+            'user_id' => $isTeacher ? ($existing?->user_id ?? $user?->id) : $assignedTeacher?->id,
             'status' => $isTeacher ? 'на модерации' : ($existing?->status ?? 'опубликовано'),
             'instrument_id' => $this->instrumentIdFor($payload['instrument']),
             'title' => $payload['title'],
-            'author' => $user?->name ?: $payload['author'],
+            'author' => $isTeacher
+                ? ($user?->name ?: $payload['author'])
+                : ($assignedTeacher?->name ?: $payload['author']),
             'category' => $payload['category'],
             'instrument' => $payload['instrument'],
             'image' => $payload['img'],
             'tagline' => $payload['tagline'],
             'short_description' => $payload['shortDescription'],
             'description' => $payload['description'],
-            'features' => $payload['features'],
+            'features' => $payload['features'] ?? [''],
             'outcomes' => $payload['outcomes'],
             'lessons' => $payload['lessons'],
             'lesson_count' => $payload['lessonCount'],
@@ -228,9 +247,10 @@ class CourseController extends Controller
         }
 
         if ($course->status === 'опубликовано') {
-            return $course->owner?->role === 'teacher'
+            return $course->user_id === null
+                || ($course->owner?->role === 'teacher'
                 && $course->owner?->teacher_status === 'одобрен'
-                && ! $course->owner?->is_banned;
+                && ! $course->owner?->is_banned);
         }
 
         return $user?->role === 'teacher' && (int) $course->user_id === (int) $user->id;
