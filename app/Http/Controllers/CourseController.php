@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Course;
 use App\Models\Instrument;
 use App\Models\Lesson;
+use App\Models\UserVideo;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
@@ -82,9 +84,19 @@ class CourseController extends Controller
 
     public function destroy(Request $request, string $code): JsonResponse
     {
-        $course = Course::query()->where('code', Course::resolveCode($code))->firstOrFail();
+        $course = Course::query()
+            ->with('lessonList')
+            ->where('code', Course::resolveCode($code))
+            ->firstOrFail();
         $this->ensureCanManageCourse($this->user($request), $course);
+        $media = collect([$course->image, $course->video])
+            ->merge($course->lessonList->flatMap(fn (Lesson $lesson) => [$lesson->image, $lesson->video]))
+            ->filter()
+            ->unique()
+            ->values();
+
         $course->delete();
+        $media->each(fn (string $url) => $this->deleteUnusedPublicFile($url));
 
         return response()->json(['success' => true]);
     }
@@ -263,5 +275,22 @@ class CourseController extends Controller
         }
 
         return Instrument::query()->where('name', $name)->value('id');
+    }
+
+    private function deleteUnusedPublicFile(string $url): void
+    {
+        if (! str_starts_with($url, '/storage/')) {
+            return;
+        }
+
+        if (
+            Course::query()->where('image', $url)->orWhere('video', $url)->exists()
+            || Lesson::query()->where('image', $url)->orWhere('video', $url)->exists()
+            || UserVideo::query()->where('image', $url)->orWhere('video', $url)->exists()
+        ) {
+            return;
+        }
+
+        Storage::disk('public')->delete(substr($url, strlen('/storage/')));
     }
 }

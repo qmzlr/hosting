@@ -88,15 +88,13 @@ export default function CourseDetail({
 
   return (
     <AppShell>
-      <section className="course-mobile-start">
-        <div className="pn-container">
+      <PageHero eyebrow={`${course.instrument} · ${course.level}`} title={course.title} text={course.tagline} image={course.img} />
+      <section className="pn-section">
+        <div className="course-mobile-start">
           <div className="course-aside">
             {progressCard}
           </div>
         </div>
-      </section>
-      <PageHero eyebrow={`${course.instrument} · ${course.level}`} title={course.title} text={course.tagline} image={course.img} />
-      <section className="pn-section">
         <div className="pn-container course-detail-grid">
           <div>
             <SectionTitle title="О курсе" />

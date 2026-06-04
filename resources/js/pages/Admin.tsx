@@ -42,6 +42,10 @@ export default function Admin({
 }) {
   const [active, setActive] = useState<Tab | null>(() => tabFromLocation())
   const [query, setQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<AdminUser['role'] | 'all'>('all')
+  const [courseStatusFilter, setCourseStatusFilter] = useState('all')
+  const [courseInstrumentFilter, setCourseInstrumentFilter] = useState('all')
+  const [courseLevelFilter, setCourseLevelFilter] = useState('all')
   const [courseItems, setCourseItems] = useState(courses)
   const [userItems, setUserItems] = useState(users)
   const [instrumentItems, setInstrumentItems] = useState(instruments)
@@ -84,23 +88,66 @@ export default function Admin({
             ))}
           </div>
           {!resolvedActive ? (
-            <div className="admin-choice-grid">
-              {availableTabs.map((tab) => (
-                <button className="pn-card pn-card-body admin-choice-card" key={tab} onClick={() => { setActive(tab); setQuery('') }}>
-                  <div className="pn-meta">Раздел</div>
-                  <strong>{tab}</strong>
-                  <span>{sectionHint(tab)}</span>
+            <>
+              <div className="admin-choice-grid">
+                {availableTabs.map((tab) => (
+                  <button className="pn-card pn-card-body admin-choice-card" key={tab} onClick={() => {
+                    setActive(tab)
+                    setQuery('')
+                    setRoleFilter('all')
+                    setCourseStatusFilter('all')
+                    setCourseInstrumentFilter('all')
+                    setCourseLevelFilter('all')
+                  }}>
+                    <div className="pn-meta">Раздел</div>
+                    <strong>{tab}</strong>
+                    <span>{sectionHint(tab)}</span>
+                  </button>
+                ))}
+              </div>
+              {workspace === 'admin' && (
+                <button className="pn-button admin-moderator-link" onClick={() => router.visit('/moderator')}>
+                  Перейти в панель модератора
                 </button>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <>
-              <div className="admin-workbench">
-                <button className="pn-button" onClick={() => { setActive(null); setQuery('') }}>Назад к разделам</button>
-                <input className="pn-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Поиск: ${resolvedActive.toLowerCase()}`} />
+              <div className={`admin-workbench ${resolvedActive === 'Курсы' ? 'has-course-filters' : ''} ${workspace === 'admin' && resolvedActive === 'Пользователи' ? 'has-role-filter' : ''}`}>
+                <button className="pn-button" onClick={() => {
+                  setActive(null)
+                  setQuery('')
+                  setRoleFilter('all')
+                  setCourseStatusFilter('all')
+                  setCourseInstrumentFilter('all')
+                  setCourseLevelFilter('all')
+                }}>Назад к разделам</button>
+                {resolvedActive === 'Курсы' && (
+                  <div className="admin-course-filters">
+                    <label className="catalog-filter">
+                      <span>Поиск</span>
+                      <input className="pn-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск: курсы" />
+                    </label>
+                    <AdminFilter label="Статус" value={courseStatusFilter} onChange={setCourseStatusFilter} options={courseFilterOptions(courseItems.map((course) => course.status ?? 'опубликовано'))} allLabel="Все статусы" />
+                    <AdminFilter label="Инструмент" value={courseInstrumentFilter} onChange={setCourseInstrumentFilter} options={courseFilterOptions(courseItems.map((course) => course.instrument))} allLabel="Все инструменты" />
+                    <AdminFilter label="Уровень" value={courseLevelFilter} onChange={setCourseLevelFilter} options={courseFilterOptions(courseItems.map((course) => course.level))} allLabel="Все уровни" />
+                  </div>
+                )}
+                {resolvedActive !== 'Курсы' && (
+                  <input className="pn-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Поиск: ${resolvedActive.toLowerCase()}`} />
+                )}
+                {workspace === 'admin' && resolvedActive === 'Пользователи' && (
+                  <label className="catalog-filter admin-role-filter">
+                    <span>Роль</span>
+                    <select className="pn-select" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as AdminUser['role'] | 'all')}>
+                      <option value="all">Все роли</option>
+                      {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
-              {resolvedActive === 'Курсы' && <CoursesPanel courses={courseItems} query={query} workspace={workspace} onChange={setCourseItems} />}
-              {workspace === 'admin' && resolvedActive === 'Пользователи' && <UsersPanel instruments={instrumentItems} query={query} users={userItems} onChange={setUserItems} />}
+              {resolvedActive === 'Курсы' && <CoursesPanel courses={courseItems} filters={{ status: courseStatusFilter, instrument: courseInstrumentFilter, level: courseLevelFilter }} query={query} workspace={workspace} onChange={setCourseItems} />}
+              {workspace === 'admin' && resolvedActive === 'Пользователи' && <UsersPanel instruments={instrumentItems} query={query} roleFilter={roleFilter} users={userItems} onChange={setUserItems} />}
               {workspace === 'admin' && resolvedActive === 'Инструменты' && <InstrumentsPanel instruments={instrumentItems} query={query} onChange={setInstrumentItems} />}
             </>
           )}
@@ -110,8 +157,23 @@ export default function Admin({
   )
 }
 
-function CoursesPanel({ courses, query, workspace, onChange }: { courses: Course[]; query: string; workspace: Workspace; onChange: (courses: Course[]) => void }) {
+function CoursesPanel({
+  courses,
+  filters,
+  query,
+  workspace,
+  onChange,
+}: {
+  courses: Course[]
+  filters: { status: string; instrument: string; level: string }
+  query: string
+  workspace: Workspace
+  onChange: (courses: Course[]) => void
+}) {
   const rows = filterRows(courses, query, (course) => `${course.id} ${course.title} ${course.instrument} ${course.level} ${course.status ?? ''}`)
+    .filter((course) => filters.status === 'all' || (course.status ?? 'опубликовано') === filters.status)
+    .filter((course) => filters.instrument === 'all' || course.instrument === filters.instrument)
+    .filter((course) => filters.level === 'all' || course.level === filters.level)
   const page = usePagedRows(rows)
   const basePath = workspace === 'teacher' ? '/teacher/courses' : '/admin/courses'
 
@@ -142,8 +204,9 @@ function CoursesPanel({ courses, query, workspace, onChange }: { courses: Course
   )
 }
 
-function UsersPanel({ instruments, query, users, onChange }: { instruments: Instrument[]; query: string; users: AdminUser[]; onChange: (users: AdminUser[]) => void }) {
+function UsersPanel({ instruments, query, roleFilter, users, onChange }: { instruments: Instrument[]; query: string; roleFilter: AdminUser['role'] | 'all'; users: AdminUser[]; onChange: (users: AdminUser[]) => void }) {
   const rows = filterRows(users, query, (user) => `${user.name} ${user.email} ${user.role} ${user.instrument}`)
+    .filter((user) => roleFilter === 'all' || user.role === roleFilter)
   const page = usePagedRows(rows)
   const [editing, setEditing] = useState<AdminUser | null>(null)
   const [banning, setBanning] = useState<AdminUser | null>(null)
@@ -258,7 +321,12 @@ function UsersPanel({ instruments, query, users, onChange }: { instruments: Inst
 function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instrument[]; user: AdminUser; onCancel: () => void; onSaved: (user: AdminUser) => void }) {
   const [form, setForm] = useState({ ...user, password: '' })
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
   const isNew = !user.id
+  const errors = validateUserForm(form, isNew)
+  const showError = (field: string) => touched[field] ? errors[field] : ''
+  const markTouched = (field: string) => setTouched((current) => ({ ...current, [field]: true }))
+  const isValid = Object.keys(errors).length === 0
 
   const toggleInstrument = (id: string) => {
     setForm((current) => ({
@@ -271,6 +339,16 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault()
+    setTouched({
+      name: true,
+      email: true,
+      password: true,
+      instruments: true,
+    })
+    if (!isValid) {
+      toast.error('Проверьте поля формы.')
+      return
+    }
     const payload = {
       name: form.name || '',
       email: form.email || '',
@@ -315,11 +393,18 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
   }
 
   return (
-    <form className="pn-card pn-card-body admin-edit-form" onSubmit={save}>
-      <FieldLabel label="Имя"><input className="pn-input" value={form.name || ''} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FieldLabel>
-      <FieldLabel label="Email"><input className="pn-input" type="email" value={form.email || ''} onChange={(event) => setForm({ ...form, email: event.target.value })} /></FieldLabel>
+    <form className="pn-card pn-card-body admin-edit-form" onSubmit={save} noValidate>
+      <FieldLabel label="Имя">
+        <input className="pn-input" value={form.name || ''} onBlur={() => markTouched('name')} onChange={(event) => setForm({ ...form, name: event.target.value })} aria-invalid={Boolean(showError('name'))} required />
+        {showError('name') && <p className="field-error">{showError('name')}</p>}
+      </FieldLabel>
+      <FieldLabel label="Email">
+        <input className="pn-input" type="email" value={form.email || ''} onBlur={() => markTouched('email')} onChange={(event) => setForm({ ...form, email: event.target.value })} aria-invalid={Boolean(showError('email'))} />
+        {showError('email') && <p className="field-error">{showError('email')}</p>}
+      </FieldLabel>
       <FieldLabel label={isNew ? 'Пароль' : 'Новый пароль'}>
-        <input className="pn-input" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder={isNew ? '' : 'Оставьте пустым, если не меняется'} required={isNew} />
+        <input className="pn-input" type="password" value={form.password} onBlur={() => markTouched('password')} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder={isNew ? '' : 'Оставьте пустым, если не меняется'} aria-invalid={Boolean(showError('password'))} required={isNew} />
+        {showError('password') && <p className="field-error">{showError('password')}</p>}
       </FieldLabel>
       <FieldLabel label="Фото профиля">
         <label className="profile-file-control">
@@ -347,7 +432,7 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
         </select>
       </FieldLabel>
       <FieldLabel label="Инструменты">
-        <div className="dashboard-chip-list profile-instrument-picker">
+        <div className="dashboard-chip-list profile-instrument-picker" aria-invalid={Boolean(showError('instruments'))} onBlur={() => markTouched('instruments')}>
           {instruments.map((instrument) => (
             <label className={`dashboard-chip ${form.instrumentIds.includes(instrument.id) ? 'is-selected' : ''}`} key={instrument.id}>
               <input type="checkbox" checked={form.instrumentIds.includes(instrument.id)} onChange={() => toggleInstrument(instrument.id)} />
@@ -355,9 +440,10 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
             </label>
           ))}
         </div>
+        {showError('instruments') && <p className="field-error">{showError('instruments')}</p>}
       </FieldLabel>
       <div className="editor-actions">
-        <button className="pn-button is-dark">Сохранить</button>
+        <button className="pn-button is-dark" disabled={!isValid}>Сохранить</button>
         <button type="button" className="pn-button" onClick={onCancel}>Отмена</button>
       </div>
     </form>
@@ -486,9 +572,65 @@ function AdminPanel({ title, aside, actionLabel, onAction, children }: { title: 
   )
 }
 
+function AdminFilter({
+  allLabel,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  allLabel: string
+  label: string
+  onChange: (value: string) => void
+  options: string[]
+  value: string
+}) {
+  return (
+    <label className="catalog-filter">
+      <span>{label}</span>
+      <select className="pn-select" value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="all">{allLabel}</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  )
+}
+
 function filterRows<T>(rows: T[], query: string, getText: (row: T) => string) {
   const value = query.trim().toLowerCase()
   return value ? rows.filter((row) => getText(row).toLowerCase().includes(value)) : rows
+}
+
+function courseFilterOptions(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((value) => value || '').filter(Boolean))).sort((first, second) => first.localeCompare(second, 'ru'))
+}
+
+function validateUserForm(form: AdminUser & { password: string }, isNew: boolean): Record<string, string> {
+  const errors: Record<string, string> = {}
+  const email = (form.email || '').trim()
+  const password = form.password || ''
+
+  if (!(form.name || '').trim()) {
+    errors.name = 'Введите имя.'
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'Введите корректный email.'
+  }
+
+  if (isNew && password.length < 6) {
+    errors.password = 'Пароль должен быть не короче 6 символов.'
+  }
+
+  if (!isNew && password && password.length < 6) {
+    errors.password = 'Новый пароль должен быть не короче 6 символов.'
+  }
+
+  if (form.role === 'teacher' && form.instrumentIds.length === 0) {
+    errors.instruments = 'Для учителя выберите хотя бы один инструмент.'
+  }
+
+  return errors
 }
 
 function emptyUser(): AdminUser {
