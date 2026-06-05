@@ -17,14 +17,16 @@ $app->make(Kernel::class)->bootstrap();
 $lessonVideos = collect(range(1, 12))
     ->map(fn (int $index) => '/videos/generated/lesson-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
     ->all();
-$lessonImageFor = fn (string $video): string => str_replace(['/videos/generated/', '.webm'], ['/images/lessons/', '.jpg'], $video);
+$lessonImageFor = fn (string $video, string $courseImage): string => str_starts_with($video, '/videos/generated/')
+    ? str_replace(['/videos/generated/', '.webm'], ['/images/lessons/', '.jpg'], $video)
+    : $courseImage;
 $lessonVideoPools = [
     'osnovy-gitary' => [$lessonVideos[0], $lessonVideos[1], $lessonVideos[2], $lessonVideos[3], $lessonVideos[4]],
     'start-na-fortepiano' => [$lessonVideos[5], $lessonVideos[6]],
     'praktika-na-udarnyh' => [$lessonVideos[7], $lessonVideos[8], $lessonVideos[9]],
-    'trenirovka-vokala' => [$lessonVideos[10], $lessonVideos[11]],
-    'kurs-ukulele' => [$lessonVideos[9], $lessonVideos[3], $lessonVideos[4]],
-    'muzykalnaya-teoriya' => [$lessonVideos[11], $lessonVideos[5], $lessonVideos[6]],
+    'trenirovka-vokala' => ['/videos/lessons/vocal-warmup.webm', '/videos/lessons/vocal-overtone-singing.webm'],
+    'kurs-ukulele' => ['/videos/lessons/ukulele-kumalae.webm', $lessonVideos[9]],
+    'muzykalnaya-teoriya' => ['/videos/lessons/theory-rhythm.webm', '/videos/lessons/theory-melody.webm', $lessonVideos[11]],
 ];
 $communityVideos = collect(range(1, 12))
     ->map(fn (int $index) => '/videos/community/community-video-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT).'.webm')
@@ -110,7 +112,7 @@ foreach ($courseTeachers as $courseIndex => $courseData) {
         $video = $pool[$index % count($pool)];
         $lesson->update([
             'code' => 'course-'.$courseData['code'].'-'.($index + 1),
-            'image' => $lessonImageFor($video),
+            'image' => $lessonImageFor($video, $course->image),
             'video' => $video,
         ]);
     }
