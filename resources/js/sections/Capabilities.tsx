@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { GlowCard } from '@/components/ui/spotlight-card'
+
+gsap.registerPlugin(ScrollTrigger)
 
 const features: { label: string; detail: string }[] = [
   { label: 'Видеобиблиотека', detail: 'Сотни видеоуроков по всем инструментам с разбором техники' },
@@ -33,6 +36,32 @@ export default function Capabilities() {
     video.play().catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const section = sectionRef.current
+    const video = videoRef.current
+    if (!section || !video || !isMobile) return
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        video,
+        { yPercent: 0, opacity: 0.72 },
+        {
+          yPercent: 34,
+          opacity: 0.2,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top top',
+            end: 'bottom bottom',
+            scrub: true,
+          },
+        },
+      )
+    }, section)
+
+    return () => ctx.revert()
+  }, [isMobile])
+
   return (
     <section
       id="features"
@@ -58,8 +87,9 @@ export default function Capabilities() {
           top: 0,
           left: 0,
           width: '100%',
-          height: '100%',
+          height: isMobile ? '100svh' : '100%',
           objectFit: 'cover',
+          objectPosition: isMobile ? '50% 0%' : '50% 50%',
           zIndex: 0,
         }}
       />
@@ -77,7 +107,7 @@ export default function Capabilities() {
         style={{
           position: 'relative',
           zIndex: 2,
-          maxWidth: '1400px',
+          maxWidth: '1560px',
           margin: '0 auto',
         }}
       >

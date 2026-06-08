@@ -30,6 +30,13 @@ export default function Spatial() {
     return () => ctx.revert()
   }, [])
 
+  useEffect(() => {
+    const video = sectionRef.current?.querySelector<HTMLVideoElement>('video')
+    if (!video) return
+
+    video.play().catch(() => {})
+  }, [])
+
   return (
     <section
       id="spatial"
@@ -50,7 +57,10 @@ export default function Spatial() {
         muted
         loop
         playsInline
-        onCanPlay={() => setVideoReady(true)}
+        onCanPlay={(event) => {
+          setVideoReady(true)
+          event.currentTarget.play().catch(() => {})
+        }}
         aria-label="Music learning video"
         style={{
           position: 'absolute',
@@ -80,17 +90,13 @@ export default function Spatial() {
         style={{
           position: 'relative',
           zIndex: 2,
-          width: '100%',
           height: '100%',
-          maxWidth: '1560px',
-          margin: '0 auto',
           display: 'grid',
           gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
           alignItems: 'flex-start',
           justifyContent: 'center',
           alignContent: 'center',
           gap: '24px',
-          padding: '0 clamp(32px, 4.5vw, 72px)',
         }}
       >
         <div className="spatial-copy">

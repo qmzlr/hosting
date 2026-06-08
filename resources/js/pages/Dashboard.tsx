@@ -243,7 +243,7 @@ export default function Dashboard({
                 Выйти
               </button>
               <button className="pn-button is-danger" onClick={deleteProfile} disabled={isDeletingProfile}>
-                {isDeletingProfile ? 'Удаляем...' : 'Удалить профиль'}
+                {isDeletingProfile ? 'Удаляем...' : 'Удалить аккаунт'}
               </button>
             </div>
           </aside>

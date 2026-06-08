@@ -62,10 +62,20 @@ class UserVideoController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['опубликовано', 'на модерации', 'отклонено'])],
+            'rejectionReason' => ['required_if:status,отклонено', 'nullable', 'string', 'max:1000'],
         ]);
 
         $video = UserVideo::query()->findOrFail($id);
-        $video->update($validated);
+        $rejectionReason = trim((string) ($validated['rejectionReason'] ?? ''));
+
+        abort_if($validated['status'] === 'отклонено' && $rejectionReason === '', 422, 'Укажите причину отклонения.');
+
+        $video->update([
+            'status' => $validated['status'],
+            'rejection_reason' => $validated['status'] === 'отклонено'
+                ? $rejectionReason
+                : null,
+        ]);
 
         return response()->json([
             'video' => $video->load('user')->toFrontend(),

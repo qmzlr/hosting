@@ -30,6 +30,7 @@ export interface Course {
   progress: number
   video: string
   lessonList: Lesson[]
+  rejectionReason?: string | null
   reason?: string
 }
 
@@ -66,6 +67,7 @@ export interface UserVideo {
   authorAvatar?: string | null
   instrument: string
   status: 'опубликовано' | 'на модерации' | 'отклонено'
+  rejectionReason?: string | null
   image: string
   video?: string | null
   detailUrl?: string
@@ -80,6 +82,7 @@ export interface CommentItem {
   targetCode: string | null
   targetUrl?: string | null
   status: 'ожидает' | 'одобрено' | 'отклонено'
+  rejectionReason?: string | null
 }
 
 export interface AdminUser {
@@ -89,6 +92,7 @@ export interface AdminUser {
   avatar: string | null
   role: 'user' | 'admin' | 'moderator' | 'teacher'
   teacherStatus?: 'ожидает' | 'одобрен' | 'отклонён' | null
+  rejectionReason?: string | null
   isBanned?: boolean
   banReason?: string | null
   instrument: string | null
@@ -103,6 +107,7 @@ export interface TeacherApplication {
   name: string | null
   email: string | null
   status: 'ожидает' | 'одобрен' | 'отклонён'
+  rejectionReason?: string | null
   instrument: string | null
   instrumentIds: string[]
   instruments: string[]

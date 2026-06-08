@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
 import { AppShell, PageHero, SectionTitle } from '@/components/AppShell'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { CommentItem, Course, TeacherApplication, UserVideo } from '@/data/courses'
 import { patchJson } from '@/lib/http'
 import { toast } from 'sonner'
 
 type QueueItem =
-  | { kind: 'video'; id: string; status: UserVideo['status']; title: string; meta: string; text: string; image: string; source: UserVideo }
-  | { kind: 'comment'; id: string; status: CommentItem['status']; title: string; meta: string; text: string; source: CommentItem }
-  | { kind: 'teacher'; id: string; status: TeacherApplication['status']; title: string; meta: string; text: string; source: TeacherApplication }
-  | { kind: 'course'; id: string; status: NonNullable<Course['status']>; title: string; meta: string; text: string; source: Course }
+  | { kind: 'video'; id: string; status: UserVideo['status']; title: string; meta: string; text: string; image: string; rejectionReason?: string | null; source: UserVideo }
+  | { kind: 'comment'; id: string; status: CommentItem['status']; title: string; meta: string; text: string; rejectionReason?: string | null; source: CommentItem }
+  | { kind: 'teacher'; id: string; status: TeacherApplication['status']; title: string; meta: string; text: string; rejectionReason?: string | null; source: TeacherApplication }
+  | { kind: 'course'; id: string; status: NonNullable<Course['status']>; title: string; meta: string; text: string; rejectionReason?: string | null; source: Course }
 
 type ModeratorTab = 'Ожидают' | 'Видео' | 'Комментарии' | 'Учителя' | 'Курсы'
 
@@ -48,6 +49,9 @@ export default function Moderator({
   const [status, setStatus] = useState<string>(allStatusLabel)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [rejectTarget, setRejectTarget] = useState<QueueItem | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [isRejecting, setIsRejecting] = useState(false)
 
   const queue = useMemo<QueueItem[]>(() => [
     ...videos.map((video) => ({
@@ -58,6 +62,7 @@ export default function Moderator({
       meta: `${video.author} · ${video.instrument}`,
       text: video.description || 'Без описания',
       image: video.image,
+      rejectionReason: video.rejectionReason,
       source: video,
     })),
     ...items.map((comment) => ({
@@ -67,6 +72,7 @@ export default function Moderator({
       title: comment.author,
       meta: comment.target,
       text: comment.text,
+      rejectionReason: comment.rejectionReason,
       source: comment,
     })),
     ...teachers.map((teacher) => ({
@@ -76,6 +82,7 @@ export default function Moderator({
       title: teacher.name || teacher.email || 'Заявка учителя',
       meta: teacher.email || 'email не указан',
       text: teacher.instruments.length ? teacher.instruments.join(', ') : 'Инструменты не выбраны',
+      rejectionReason: teacher.rejectionReason,
       source: teacher,
     })),
     ...courses.map((course) => ({
@@ -85,6 +92,7 @@ export default function Moderator({
       title: course.title,
       meta: `${course.owner?.name || course.author} · ${course.instrument} · ${course.level}`,
       text: course.tagline || course.shortDescription,
+      rejectionReason: course.rejectionReason,
       source: course,
     })),
   ].sort((first, second) => priority(second.status) - priority(first.status)), [courses, items, teachers, videos])
@@ -129,34 +137,53 @@ export default function Moderator({
     rejected: queue.filter((item) => item.status === 'отклонено' || item.status === 'отклонён').length,
   }
 
-  const updateItem = async (item: QueueItem, nextStatus: QueueItem['status']) => {
+  const updateItem = async (item: QueueItem, nextStatus: QueueItem['status'], rejectionReason?: string) => {
     try {
       if (item.kind === 'video') {
-        const payload = await patchJson<{ video: UserVideo }>(`/api/videos/${numericId(item.id)}/status`, { status: nextStatus })
+        const payload = await patchJson<{ video: UserVideo }>(`/api/videos/${numericId(item.id)}/status`, { status: nextStatus, rejectionReason })
         setVideos((current) => current.map((video) => video.id === item.id ? payload.video : video))
         toast.success('Статус видео обновлён.')
         return
       }
 
       if (item.kind === 'comment') {
-        const payload = await patchJson<{ comment: CommentItem }>(`/api/comments/${numericId(item.id)}/status`, { status: nextStatus })
+        const payload = await patchJson<{ comment: CommentItem }>(`/api/comments/${numericId(item.id)}/status`, { status: nextStatus, rejectionReason })
         setItems((current) => current.map((comment) => comment.id === item.id ? payload.comment : comment))
         toast.success('Статус комментария обновлён.')
         return
       }
 
       if (item.kind === 'teacher') {
-        const payload = await patchJson<{ teacher: TeacherApplication }>(`/api/teachers/${numericId(item.id)}/status`, { status: nextStatus })
+        const payload = await patchJson<{ teacher: TeacherApplication }>(`/api/teachers/${numericId(item.id)}/status`, { status: nextStatus, rejectionReason })
         setTeachers((current) => current.map((teacher) => teacher.id === item.id ? payload.teacher : teacher))
         toast.success('Статус учителя обновлён.')
         return
       }
 
-      const payload = await patchJson<{ course: Course }>(`/api/courses/${item.id}/status`, { status: nextStatus })
+      const payload = await patchJson<{ course: Course }>(`/api/courses/${item.id}/status`, { status: nextStatus, rejectionReason })
       setCourses((current) => current.map((course) => course.id === item.id ? payload.course : course))
       toast.success('Статус курса обновлён.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось выполнить действие.')
+    }
+  }
+
+  const openRejectDialog = (item: QueueItem) => {
+    setRejectTarget(item)
+    setRejectReason(item.rejectionReason ?? '')
+  }
+
+  const submitReject = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!rejectTarget || !rejectReason.trim()) return
+
+    setIsRejecting(true)
+    try {
+      await updateItem(rejectTarget, rejectedStatus(rejectTarget), rejectReason.trim())
+      setRejectTarget(null)
+      setRejectReason('')
+    } finally {
+      setIsRejecting(false)
     }
   }
 
@@ -211,10 +238,16 @@ export default function Moderator({
                       )}
                       <div className="moderation-actions">
                         <button className="pn-button is-dark" onClick={() => updateItem(item, approvedStatus(item))}>Одобрить</button>
-                        <button className="pn-button" onClick={() => updateItem(item, rejectedStatus(item))}>Отклонить</button>
+                        <button className="pn-button" onClick={() => openRejectDialog(item)}>Отклонить</button>
                         <button className="pn-button" onClick={() => updateItem(item, queuedStatus(item))}>Вернуть в очередь</button>
                         {(item.kind === 'video' || item.kind === 'course') && <button className="pn-button" onClick={() => openItem(item)}>{item.kind === 'video' ? 'Смотреть видео' : 'Открыть курс'}</button>}
                       </div>
+                      {item.rejectionReason && (
+                        <div className="moderation-rejection-reason">
+                          <div className="pn-meta">Причина отклонения</div>
+                          <p>{item.rejectionReason}</p>
+                        </div>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -225,6 +258,39 @@ export default function Moderator({
           )}
         </div>
       </section>
+      <Dialog open={Boolean(rejectTarget)} onOpenChange={(open) => {
+        if (!open) {
+          setRejectTarget(null)
+          setRejectReason('')
+        }
+      }}>
+        <DialogContent className="profile-dialog moderator-reject-dialog">
+          <DialogHeader>
+            <DialogTitle>Причина отклонения</DialogTitle>
+            <DialogDescription>
+              Укажите, почему материал нужно отклонить. Текст сохранится в истории модерации.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="moderator-reject-form" onSubmit={submitReject}>
+            <textarea
+              className="pn-textarea"
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Например: не подходит качество видео, нарушены правила или нужны документы"
+              maxLength={1000}
+              required
+            />
+            <div className="editor-actions">
+              <button className="pn-button is-dark" disabled={isRejecting || !rejectReason.trim()}>
+                {isRejecting ? 'Сохраняем...' : 'Отклонить'}
+              </button>
+              <button type="button" className="pn-button" onClick={() => setRejectTarget(null)}>
+                Отмена
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }

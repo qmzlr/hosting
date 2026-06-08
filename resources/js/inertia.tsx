@@ -19,7 +19,14 @@ createInertiaApp({
     createRoot(el).render(
       <>
         <App {...props} />
-        <Toaster richColors position="top-right" />
+        <Toaster
+          richColors
+          position="top-right"
+          offset={{
+            top: '76px',
+            right: 'max(clamp(20px, 4vw, 60px), calc((100vw - 1560px) / 2))',
+          }}
+        />
       </>,
     )
   },

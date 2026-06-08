@@ -15,6 +15,7 @@ class UserVideo extends Model
         'description',
         'instrument',
         'status',
+        'rejection_reason',
         'image',
         'video',
     ];
@@ -39,6 +40,7 @@ class UserVideo extends Model
             'authorAvatar' => $this->user?->avatar,
             'instrument' => $this->instrument,
             'status' => $this->status,
+            'rejectionReason' => $this->rejection_reason,
             'image' => $this->image,
             'video' => $this->video,
             'detailUrl' => '/community/videos/'.$this->id,

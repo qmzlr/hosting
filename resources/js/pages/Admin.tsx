@@ -105,11 +105,6 @@ export default function Admin({
                   </button>
                 ))}
               </div>
-              {workspace === 'admin' && (
-                <button className="pn-button admin-moderator-link" onClick={() => router.visit('/moderator')}>
-                  Перейти в панель модератора
-                </button>
-              )}
             </>
           ) : (
             <>

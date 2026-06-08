@@ -205,6 +205,7 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
                 }}
               />
             </label>
+            {message && isUploadDialogOpen && <p className="upload-form-error">{message}</p>}
             <MediaAttachmentPreview value={videoFile} kind="video" emptyText="Видео пока не выбрано." onRemove={() => {
               setVideoFile(null)
               setPreviewFile(null)
@@ -213,7 +214,6 @@ export default function MyVideos({ instruments, userVideos }: { instruments: Ins
             <MediaAttachmentPreview value={previewFile} kind="image" emptyText="Превью создастся автоматически после выбора видео." onRemove={() => setPreviewFile(null)} />
             <UploadProgress progress={uploadProgress} />
             <button className="pn-button is-dark" disabled={isUploading || !videoFile}>{isUploading ? 'Загружаем...' : 'Загрузить'}</button>
-            {message && isUploadDialogOpen && <p className="pn-text">{message}</p>}
           </form>
         </DialogContent>
       </Dialog>

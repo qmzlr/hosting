@@ -15,14 +15,23 @@ class ModerationController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['ожидает', 'одобрен', 'отклонён'])],
+            'rejectionReason' => ['required_if:status,отклонён', 'nullable', 'string', 'max:1000'],
         ]);
 
         $teacher = User::query()
             ->with('instruments')
             ->where('role', 'teacher')
             ->findOrFail($id);
+        $rejectionReason = trim((string) ($validated['rejectionReason'] ?? ''));
 
-        $teacher->update(['teacher_status' => $validated['status']]);
+        abort_if($validated['status'] === 'отклонён' && $rejectionReason === '', 422, 'Укажите причину отклонения.');
+
+        $teacher->update([
+            'teacher_status' => $validated['status'],
+            'rejection_reason' => $validated['status'] === 'отклонён'
+                ? $rejectionReason
+                : null,
+        ]);
 
         return response()->json([
             'teacher' => $this->teacherPayload($teacher->fresh('instruments')),
@@ -33,14 +42,23 @@ class ModerationController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['на модерации', 'опубликовано', 'отклонено'])],
+            'rejectionReason' => ['required_if:status,отклонено', 'nullable', 'string', 'max:1000'],
         ]);
 
         $course = Course::query()
             ->with(['lessonList', 'owner'])
             ->where('code', Course::resolveCode($code))
             ->firstOrFail();
+        $rejectionReason = trim((string) ($validated['rejectionReason'] ?? ''));
 
-        $course->update(['status' => $validated['status']]);
+        abort_if($validated['status'] === 'отклонено' && $rejectionReason === '', 422, 'Укажите причину отклонения.');
+
+        $course->update([
+            'status' => $validated['status'],
+            'rejection_reason' => $validated['status'] === 'отклонено'
+                ? $rejectionReason
+                : null,
+        ]);
 
         return response()->json([
             'course' => $course->fresh(['lessonList', 'owner'])->toFrontend(),
@@ -54,6 +72,7 @@ class ModerationController extends Controller
             'name' => $teacher->name,
             'email' => $teacher->email,
             'status' => $teacher->teacher_status ?? 'ожидает',
+            'rejectionReason' => $teacher->rejection_reason,
             'instrument' => $teacher->instrument,
             'instrumentIds' => $teacher->instruments->pluck('slug')->values()->all(),
             'instruments' => $teacher->instruments->pluck('name')->values()->all(),

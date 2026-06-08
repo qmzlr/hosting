@@ -36,7 +36,7 @@ Route::get('/community', [PlatformPageController::class, 'community'])->name('co
 Route::get('/community/videos/{video}', [PlatformPageController::class, 'communityVideo'])->name('community.videos.show');
 Route::get('/my-videos', [PlatformPageController::class, 'community'])->name('my-videos');
 Route::get('/privacy', fn () => Inertia::render('Privacy'))->name('privacy');
-Route::get('/moderator', [PlatformPageController::class, 'moderator'])->middleware('role:admin,moderator')->name('moderator');
+Route::get('/moderator', [PlatformPageController::class, 'moderator'])->middleware('role:moderator')->name('moderator');
 Route::get('/admin', [PlatformPageController::class, 'admin'])->middleware('role:admin')->name('admin');
 Route::get('/admin/courses/new', [PlatformPageController::class, 'courseEditor'])->middleware('role:admin')->name('admin.courses.new');
 Route::get('/admin/courses/{courseId}/edit', [PlatformPageController::class, 'courseEditor'])->middleware('role:admin')->name('admin.courses.edit');
@@ -65,14 +65,14 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/videos', [UserVideoController::class, 'index'])->name('videos.index');
     Route::post('/videos', [UserVideoController::class, 'store'])->middleware('role:user,admin,moderator')->name('videos.store');
     Route::delete('/videos/{video}', [UserVideoController::class, 'destroy'])->middleware('role:user,admin,moderator')->name('videos.destroy');
-    Route::patch('/videos/{video}/status', [UserVideoController::class, 'updateStatus'])->middleware('role:admin,moderator')->name('videos.status');
-    Route::patch('/teachers/{teacher}/status', [ModerationController::class, 'updateTeacherStatus'])->middleware('role:admin,moderator')->name('teachers.status');
-    Route::patch('/courses/{courseCode}/status', [ModerationController::class, 'updateCourseStatus'])->middleware('role:admin,moderator')->name('courses.status');
+    Route::patch('/videos/{video}/status', [UserVideoController::class, 'updateStatus'])->middleware('role:moderator')->name('videos.status');
+    Route::patch('/teachers/{teacher}/status', [ModerationController::class, 'updateTeacherStatus'])->middleware('role:moderator')->name('teachers.status');
+    Route::patch('/courses/{courseCode}/status', [ModerationController::class, 'updateCourseStatus'])->middleware('role:moderator')->name('courses.status');
     Route::patch('/lessons/{lesson}/progress', [LessonProgressController::class, 'update'])->name('lessons.progress');
 
     Route::get('/comments', [PlatformCommentController::class, 'index'])->name('comments.index');
     Route::post('/comments', [PlatformCommentController::class, 'store'])->middleware('session.auth')->name('comments.store');
-    Route::patch('/comments/{comment}/status', [PlatformCommentController::class, 'updateStatus'])->middleware('role:admin,moderator')->name('comments.status');
+    Route::patch('/comments/{comment}/status', [PlatformCommentController::class, 'updateStatus'])->middleware('role:moderator')->name('comments.status');
 
     Route::middleware('role:admin,teacher')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/uploads', [AdminController::class, 'upload'])->name('uploads.store');

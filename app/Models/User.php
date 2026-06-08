@@ -24,6 +24,7 @@ class User extends Model
         'avatar',
         'role',
         'teacher_status',
+        'rejection_reason',
         'teacher_documents',
         'is_banned',
         'ban_reason',

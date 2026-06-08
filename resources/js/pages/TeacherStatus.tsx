@@ -3,9 +3,11 @@ import type { Instrument } from '@/data/courses'
 
 export default function TeacherStatus({
   instruments,
+  rejectionReason,
   status,
 }: {
   instruments: Instrument[]
+  rejectionReason?: string | null
   status: 'ожидает' | 'одобрен' | 'отклонён'
 }) {
   const isRejected = status === 'отклонён'
@@ -24,6 +26,12 @@ export default function TeacherStatus({
           <p className="pn-text">
             Пока статус не станет “одобрен”, публикация курсов недоступна. Выбранные направления уже сохранены в профиле заявки.
           </p>
+          {isRejected && rejectionReason && (
+            <div className="teacher-rejection-reason">
+              <div className="pn-meta">Причина отклонения</div>
+              <p>{rejectionReason}</p>
+            </div>
+          )}
           <div className="dashboard-chip-list">
             {instruments.map((instrument) => (
               <span className="dashboard-chip is-selected" key={instrument.id}>{instrument.name}</span>

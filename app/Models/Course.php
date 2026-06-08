@@ -23,6 +23,7 @@ class Course extends Model
         'code',
         'user_id',
         'status',
+        'rejection_reason',
         'instrument_id',
         'title',
         'author',
@@ -119,6 +120,7 @@ class Course extends Model
         return [
             'id' => $this->code,
             'status' => $this->status,
+            'rejectionReason' => $this->rejection_reason,
             'owner' => $this->owner ? [
                 'id' => (string) $this->owner->id,
                 'name' => $this->owner->name,

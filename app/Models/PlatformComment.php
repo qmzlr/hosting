@@ -18,6 +18,7 @@ class PlatformComment extends Model
         'lesson_id',
         'user_video_id',
         'status',
+        'rejection_reason',
     ];
 
     protected static function booted(): void
@@ -48,6 +49,7 @@ class PlatformComment extends Model
             'targetCode' => $this->resolvedTargetCode(),
             'targetUrl' => $this->targetUrl(),
             'status' => $this->status,
+            'rejectionReason' => $this->rejection_reason,
         ];
     }
 

@@ -73,10 +73,20 @@ class PlatformCommentController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['ожидает', 'одобрено', 'отклонено'])],
+            'rejectionReason' => ['required_if:status,отклонено', 'nullable', 'string', 'max:1000'],
         ]);
 
         $comment = PlatformComment::query()->findOrFail($id);
-        $comment->update($validated);
+        $rejectionReason = trim((string) ($validated['rejectionReason'] ?? ''));
+
+        abort_if($validated['status'] === 'отклонено' && $rejectionReason === '', 422, 'Укажите причину отклонения.');
+
+        $comment->update([
+            'status' => $validated['status'],
+            'rejection_reason' => $validated['status'] === 'отклонено'
+                ? $rejectionReason
+                : null,
+        ]);
 
         return response()->json([
             'comment' => $comment->toFrontend(),

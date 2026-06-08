@@ -64,7 +64,7 @@ export default function Philosophy() {
     >
       <div
         style={{
-          maxWidth: '1400px',
+          maxWidth: '1560px',
           margin: '0 auto',
           display: 'flex',
           gap: '80px',

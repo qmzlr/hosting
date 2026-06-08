@@ -223,6 +223,7 @@ class PlatformPageController extends Controller
         if ($user->teacher_status !== 'одобрен') {
             return Inertia::render('TeacherStatus', [
                 'status' => $user->teacher_status ?? 'ожидает',
+                'rejectionReason' => $user->rejection_reason,
                 'instruments' => $user->instruments()
                     ->orderBy('instruments.id')
                     ->get()
@@ -505,6 +506,7 @@ class PlatformPageController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'status' => $user->teacher_status ?? 'ожидает',
+            'rejectionReason' => $user->rejection_reason,
             'instrument' => $user->instrument,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),
             'instruments' => $user->instruments->pluck('name')->values()->all(),
@@ -529,6 +531,7 @@ class PlatformPageController extends Controller
             'avatar' => $user->avatar,
             'role' => $user->role,
             'teacherStatus' => $user->teacher_status,
+            'rejectionReason' => $user->rejection_reason,
             'isBanned' => $user->is_banned,
             'banReason' => $user->ban_reason,
             'instrument' => $user->instrument,

@@ -66,89 +66,96 @@ export default function Hero() {
         width: '100%',
         minHeight: '760px',
         backgroundColor: '#0b0b0b',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
       }}
     >
-      {/* Left: image */}
       <div
+        className="matching-grid"
         style={{
-          position: 'relative',
           width: '100%',
-          minHeight: '420px',
-          overflow: 'hidden',
+          minHeight: '760px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
         }}
       >
-        <img
-          src="/images/form-bg.jpg"
-          alt="Music instruments"
+        {/* Left: image */}
+        <div
           style={{
-            position: 'absolute',
-            inset: 0,
+            position: 'relative',
             width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.45) 100%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 'clamp(24px, 4vw, 48px)',
-            left: 'clamp(24px, 4vw, 48px)',
-            right: 'clamp(24px, 4vw, 48px)',
-            zIndex: 2,
-            pointerEvents: 'none',
+            minHeight: '420px',
+            overflow: 'hidden',
           }}
         >
-          <h2
+          <img
+            src="/images/form-bg.jpg"
+            alt="Music instruments"
             style={{
-              fontSize: 'clamp(36px, 4.5vw, 64px)',
-              fontWeight: 400,
-              letterSpacing: '-0.03em',
-              lineHeight: 1.02,
-              color: '#ffffff',
-              marginBottom: '16px',
-              textShadow: '0 2px 24px rgba(0,0,0,0.25)',
-              maxWidth: '520px',
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.45) 100%)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 'clamp(20px, 4vw, 60px)',
+              left: 'max(clamp(20px, 4vw, 60px), calc((100vw - 1560px) / 2))',
+              right: 'clamp(20px, 4vw, 60px)',
+              zIndex: 2,
+              pointerEvents: 'none',
             }}
           >
-            Подобрать
-            <br />
-            курс
-          </h2>
-          <p
-            style={{
-              fontSize: '13px',
-              letterSpacing: '0.18em',
-              color: 'rgba(255,255,255,0.9)',
-              textTransform: 'uppercase',
-            }}
-          >
-            PLAYNOTE · Персональный учебный маршрут
-          </p>
+            <h2
+              style={{
+                fontSize: 'clamp(36px, 4.5vw, 64px)',
+                fontWeight: 400,
+                letterSpacing: '-0.03em',
+                lineHeight: 1.02,
+                color: '#ffffff',
+                marginBottom: '16px',
+                textShadow: '0 2px 24px rgba(0,0,0,0.25)',
+                maxWidth: '520px',
+              }}
+            >
+              Подобрать
+              <br />
+              курс
+            </h2>
+            <p
+              style={{
+                fontSize: '13px',
+                letterSpacing: '0.18em',
+                color: 'rgba(255,255,255,0.9)',
+                textTransform: 'uppercase',
+              }}
+            >
+              PLAYNOTE · Персональный учебный маршрут
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Right: form */}
-      <div
-        style={{
-          backgroundColor: '#0b0b0b',
-          color: '#ffffff',
-          padding: 'clamp(40px, 5vw, 72px) clamp(24px, 4vw, 60px)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}
-      >
-        <div style={{ maxWidth: '520px', width: '100%', marginLeft: 'auto', marginRight: 'auto' }}>
+        {/* Right: form */}
+        <div
+          style={{
+            backgroundColor: '#0b0b0b',
+            color: '#ffffff',
+            padding: 'clamp(40px, 5vw, 72px) clamp(24px, 4vw, 60px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ maxWidth: '520px', width: '100%', marginLeft: 'auto', marginRight: 'auto' }}>
           <p
             style={{
               fontSize: '11px',
@@ -314,6 +321,7 @@ export default function Hero() {
               </button>
             </form>
           )}
+          </div>
         </div>
       </div>
     </section>
