@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { AdminUser, Course, Instrument } from '@/data/courses'
 import { deleteJson, patchJson, postJson, putJson, uploadFormData, type UploadProgressState } from '@/lib/http'
 import { imageAccept, validateImageFile } from '@/lib/uploads'
+import { isValidEmail } from '@/lib/validation'
 import { toast } from 'sonner'
 
 type Tab = 'Курсы' | 'Пользователи' | 'Инструменты'
@@ -31,12 +32,14 @@ export default function Admin({
   adminStats,
   courses,
   instruments,
+  isSuperAdmin = false,
   users,
   workspace = 'admin',
 }: {
   adminStats: [string, string][]
   courses: Course[]
   instruments: Instrument[]
+  isSuperAdmin?: boolean
   users: AdminUser[]
   workspace?: Workspace
 }) {
@@ -49,6 +52,7 @@ export default function Admin({
   const [courseItems, setCourseItems] = useState(courses)
   const [userItems, setUserItems] = useState(users)
   const [instrumentItems, setInstrumentItems] = useState(instruments)
+  const availableRoles = isSuperAdmin ? roles : roles.filter((role) => role !== 'admin')
   const liveStats = useMemo(() => {
     if (workspace === 'teacher') {
       return [
@@ -136,13 +140,13 @@ export default function Admin({
                     <span>Роль</span>
                     <select className="pn-select" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as AdminUser['role'] | 'all')}>
                       <option value="all">Все роли</option>
-                      {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                      {availableRoles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
                     </select>
                   </label>
                 )}
               </div>
               {resolvedActive === 'Курсы' && <CoursesPanel courses={courseItems} filters={{ status: courseStatusFilter, instrument: courseInstrumentFilter, level: courseLevelFilter }} query={query} workspace={workspace} onChange={setCourseItems} />}
-              {workspace === 'admin' && resolvedActive === 'Пользователи' && <UsersPanel instruments={instrumentItems} query={query} roleFilter={roleFilter} users={userItems} onChange={setUserItems} />}
+              {workspace === 'admin' && resolvedActive === 'Пользователи' && <UsersPanel availableRoles={availableRoles} instruments={instrumentItems} query={query} roleFilter={roleFilter} users={userItems} onChange={setUserItems} />}
               {workspace === 'admin' && resolvedActive === 'Инструменты' && <InstrumentsPanel instruments={instrumentItems} query={query} onChange={setInstrumentItems} />}
             </>
           )}
@@ -199,7 +203,7 @@ function CoursesPanel({
   )
 }
 
-function UsersPanel({ instruments, query, roleFilter, users, onChange }: { instruments: Instrument[]; query: string; roleFilter: AdminUser['role'] | 'all'; users: AdminUser[]; onChange: (users: AdminUser[]) => void }) {
+function UsersPanel({ availableRoles, instruments, query, roleFilter, users, onChange }: { availableRoles: AdminUser['role'][]; instruments: Instrument[]; query: string; roleFilter: AdminUser['role'] | 'all'; users: AdminUser[]; onChange: (users: AdminUser[]) => void }) {
   const rows = filterRows(users, query, (user) => `${user.name} ${user.email} ${user.role} ${user.instrument}`)
     .filter((user) => roleFilter === 'all' || user.role === roleFilter)
   const page = usePagedRows(rows)
@@ -265,7 +269,7 @@ function UsersPanel({ instruments, query, roleFilter, users, onChange }: { instr
             <DialogTitle>{editing?.id ? 'Редактировать пользователя' : 'Создать пользователя'}</DialogTitle>
             <DialogDescription>Заполните профиль, роль, уровень и интересующие инструменты.</DialogDescription>
           </DialogHeader>
-          {editing && <UserForm instruments={instruments} user={editing} onCancel={() => setEditing(null)} onSaved={(user) => {
+          {editing && <UserForm availableRoles={availableRoles} instruments={instruments} user={editing} onCancel={() => setEditing(null)} onSaved={(user) => {
             onChange(users.some((item) => item.id === user.id) ? users.map((item) => item.id === user.id ? user : item) : [user, ...users])
             setEditing(null)
           }} />}
@@ -300,7 +304,7 @@ function UsersPanel({ instruments, query, roleFilter, users, onChange }: { instr
           <article className="admin-row" key={user.id}>
             <span><strong>{user.name || 'Без имени'}</strong><em>{user.email || 'без email'} · {roleLabel(user.role)}{user.role === 'teacher' ? ` · ${user.teacherStatus || 'ожидает'}` : ''} · {user.instrument || 'инструмент не выбран'}{user.isBanned ? ` · ${banStatusText(user)}` : ''}</em></span>
             <select className="pn-select admin-row-select" value={user.role} onChange={(event) => changeRole(user, event.target.value as AdminUser['role'])}>
-              {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+              {availableRoles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
             </select>
             {user.isBanned
               ? <button type="button" className="pn-button admin-row-action" onClick={() => updateBan(user, false)}>Разблокировать</button>
@@ -313,7 +317,7 @@ function UsersPanel({ instruments, query, roleFilter, users, onChange }: { instr
   )
 }
 
-function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instrument[]; user: AdminUser; onCancel: () => void; onSaved: (user: AdminUser) => void }) {
+function UserForm({ availableRoles, instruments, user, onCancel, onSaved }: { availableRoles: AdminUser['role'][]; instruments: Instrument[]; user: AdminUser; onCancel: () => void; onSaved: (user: AdminUser) => void }) {
   const [form, setForm] = useState({ ...user, password: '' })
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -411,7 +415,7 @@ function UserForm({ instruments, user, onCancel, onSaved }: { instruments: Instr
       </FieldLabel>
       <FieldLabel label="Роль">
         <select className="pn-select" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as AdminUser['role'] })}>
-          {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+          {availableRoles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
         </select>
       </FieldLabel>
       {form.role === 'teacher' && (
@@ -609,7 +613,7 @@ function validateUserForm(form: AdminUser & { password: string }, isNew: boolean
     errors.name = 'Введите имя.'
   }
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (email && !isValidEmail(email)) {
     errors.email = 'Введите корректный email.'
   }
 
@@ -638,6 +642,7 @@ function emptyUser(): AdminUser {
     teacherStatus: null,
     isBanned: false,
     banReason: null,
+    mustChangeEmail: false,
     instrument: '',
     level: 'Начинающий',
     instrumentIds: [],

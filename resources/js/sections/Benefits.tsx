@@ -1,8 +1,4 @@
 import { useEffect, useRef } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
 
 const benefits = [
   {
@@ -31,8 +27,20 @@ export default function Benefits() {
     const section = sectionRef.current
     const items = itemsRef.current
     if (!section || !items) return
+    if (window.matchMedia('(max-width: 700px)').matches) return
 
-    const ctx = gsap.context(() => {
+    let ctx: { revert: () => void } | undefined
+    let disposed = false
+
+    void (async () => {
+      const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+        import('gsap'),
+        import('gsap/ScrollTrigger'),
+      ])
+      if (disposed) return
+
+      gsap.registerPlugin(ScrollTrigger)
+      ctx = gsap.context(() => {
       gsap.from(items.children, {
         y: 50,
         opacity: 0,
@@ -45,9 +53,13 @@ export default function Benefits() {
           once: true,
         },
       })
-    }, section)
+      }, section)
+    })()
 
-    return () => ctx.revert()
+    return () => {
+      disposed = true
+      ctx?.revert()
+    }
   }, [])
 
   return (

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\UserAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +21,7 @@ class EnsureSessionAuthenticated
             }
 
             if ($request->expectsJson()) {
-                abort(403, $user?->is_banned ? 'Аккаунт заблокирован.' : 'Нужно войти в аккаунт.');
+                abort(403, $user?->is_banned ? UserAccess::banMessage($user) : 'Нужно войти в аккаунт.');
             }
 
             return redirect()->route('login');

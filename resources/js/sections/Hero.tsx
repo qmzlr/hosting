@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { router } from '@inertiajs/react'
 import { useAuth } from '@/hooks/useAuth'
 import { postJson } from '@/lib/http'
+import { isValidEmail } from '@/lib/validation'
 
 export default function Hero() {
   const { user } = useAuth()
@@ -35,6 +36,11 @@ export default function Hero() {
 
     if (!resolvedFormData.name || !resolvedFormData.email || !privacyConsent) {
       setSubmitError('Заполните обязательные поля и подтвердите согласие с политикой конфиденциальности.')
+      return
+    }
+
+    if (!isValidEmail(resolvedFormData.email)) {
+      setSubmitError('Введите корректный email.')
       return
     }
 

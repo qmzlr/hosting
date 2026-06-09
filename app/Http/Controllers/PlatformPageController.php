@@ -10,6 +10,7 @@ use App\Models\LessonProgress;
 use App\Models\PlatformComment;
 use App\Models\User;
 use App\Models\UserVideo;
+use App\Support\UserAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -54,7 +55,7 @@ class PlatformPageController extends Controller
                 ->latest()
                 ->get()
                 ->map(fn (PlatformComment $comment) => $comment->toFrontend()),
-            'canComment' => $this->isEnrolled($request, $course),
+            'canComment' => $this->isCourseCompleted($request, $course),
         ]);
     }
 
@@ -196,21 +197,26 @@ class PlatformPageController extends Controller
         $courses = $this->allCoursesFor($request);
         $instruments = $this->instrumentsForFrontend();
         $currentUserId = (int) $request->session()->get('user_id');
+        $currentUser = $this->user($request);
+        $isSuperAdmin = UserAccess::isSuperAdmin($currentUser);
+        $usersQuery = User::query()
+            ->with('instruments')
+            ->whereKeyNot($currentUserId)
+            ->when(! $isSuperAdmin, fn ($query) => $query->where('role', '!=', 'admin'));
 
         return Inertia::render('Admin', [
             'adminStats' => [
-                ['Пользователи', (string) User::query()->whereKeyNot($currentUserId)->count()],
+                ['Пользователи', (string) (clone $usersQuery)->count()],
                 ['Курсы', (string) $courses->count()],
                 ['Инструменты', (string) $instruments->count()],
             ],
             'courses' => $courses->all(),
             'instruments' => $instruments,
-            'users' => User::query()
-                ->with('instruments')
-                ->whereKeyNot($currentUserId)
+            'users' => $usersQuery
                 ->orderBy('id')
                 ->get()
                 ->map(fn (User $user) => $this->adminUserPayload($user)),
+            'isSuperAdmin' => $isSuperAdmin,
             'workspace' => 'admin',
         ]);
     }
@@ -468,6 +474,24 @@ class PlatformPageController extends Controller
             ->exists();
     }
 
+    private function isCourseCompleted(Request $request, Course $course): bool
+    {
+        $userId = $this->userId($request);
+
+        if (! $userId || $course->lessonList->isEmpty()) {
+            return false;
+        }
+
+        $completedCount = LessonProgress::query()
+            ->where('userId', $userId)
+            ->where('completed', true)
+            ->whereIn('lesson_id', $course->lessonList->pluck('id'))
+            ->distinct()
+            ->count('lesson_id');
+
+        return $completedCount >= $course->lessonList->count();
+    }
+
     private function isLessonCompleted(Request $request, Lesson $lesson): bool
     {
         $userId = $this->userId($request);
@@ -534,6 +558,7 @@ class PlatformPageController extends Controller
             'rejectionReason' => $user->rejection_reason,
             'isBanned' => $user->is_banned,
             'banReason' => $user->ban_reason,
+            'mustChangeEmail' => $user->must_change_email,
             'instrument' => $user->instrument,
             'level' => $user->level,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),

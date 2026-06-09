@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\UserAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +20,7 @@ class EnsureUserRole
                 $request->session()->forget('user_id');
             }
 
-            abort(403, $user?->is_banned ? 'Аккаунт заблокирован.' : 'Доступ запрещён.');
+            abort(403, $user?->is_banned ? UserAccess::banMessage($user) : 'Доступ запрещён.');
         }
 
         return $next($request);

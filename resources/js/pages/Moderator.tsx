@@ -23,6 +23,41 @@ const statusLabelsByTab = {
   Курсы: [allStatusLabel, 'на модерации', 'опубликовано', 'отклонено'],
 } as const
 const pageSize = 8
+const customRejectionReason = 'Другое'
+const rejectionReasonOptionsByKind: Record<QueueItem['kind'], readonly string[]> = {
+  video: [
+    'Низкое качество видео',
+    'Плохой звук или сильный шум',
+    'Видео не связано с обучением музыке',
+    'Нарушены правила платформы',
+    'Неподходящее превью или описание',
+    customRejectionReason,
+  ],
+  comment: [
+    'Оскорбления или грубое общение',
+    'Спам или реклама',
+    'Комментарий не относится к материалу',
+    'Нарушены правила платформы',
+    'Некорректная или вводящая в заблуждение информация',
+    customRejectionReason,
+  ],
+  teacher: [
+    'Не приложены подтверждающие документы',
+    'Документы не читаются или не подходят',
+    'Недостаточно информации о квалификации',
+    'Выбранные инструменты не подтверждены',
+    'Нарушены правила платформы',
+    customRejectionReason,
+  ],
+  course: [
+    'Недостаточно заполнено описание курса',
+    'Не хватает уроков или материалов',
+    'Материалы курса низкого качества',
+    'Курс не соответствует выбранному инструменту или уровню',
+    'Нарушены правила платформы',
+    customRejectionReason,
+  ],
+}
 const workModes = [
   ['Видео', 'Проверка пользовательских видео', 'Видео'],
   ['Комментарии', 'Проверка обсуждений и отзывов', 'Комментарии'],
@@ -51,7 +86,9 @@ export default function Moderator({
   const [page, setPage] = useState(1)
   const [rejectTarget, setRejectTarget] = useState<QueueItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [customRejectReason, setCustomRejectReason] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
+  const finalRejectReason = rejectReason === customRejectionReason ? customRejectReason.trim() : rejectReason
 
   const queue = useMemo<QueueItem[]>(() => [
     ...videos.map((video) => ({
@@ -170,18 +207,27 @@ export default function Moderator({
 
   const openRejectDialog = (item: QueueItem) => {
     setRejectTarget(item)
-    setRejectReason(item.rejectionReason ?? '')
+    const reasonOptions = rejectionReasonOptionsByKind[item.kind]
+    if (item.rejectionReason && reasonOptions.includes(item.rejectionReason)) {
+      setRejectReason(item.rejectionReason)
+      setCustomRejectReason('')
+      return
+    }
+
+    setRejectReason(item.rejectionReason ? customRejectionReason : '')
+    setCustomRejectReason(item.rejectionReason ?? '')
   }
 
   const submitReject = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!rejectTarget || !rejectReason.trim()) return
+    if (!rejectTarget || !finalRejectReason) return
 
     setIsRejecting(true)
     try {
-      await updateItem(rejectTarget, rejectedStatus(rejectTarget), rejectReason.trim())
+      await updateItem(rejectTarget, rejectedStatus(rejectTarget), finalRejectReason)
       setRejectTarget(null)
       setRejectReason('')
+      setCustomRejectReason('')
     } finally {
       setIsRejecting(false)
     }
@@ -262,6 +308,7 @@ export default function Moderator({
         if (!open) {
           setRejectTarget(null)
           setRejectReason('')
+          setCustomRejectReason('')
         }
       }}>
         <DialogContent className="profile-dialog moderator-reject-dialog">
@@ -272,19 +319,41 @@ export default function Moderator({
             </DialogDescription>
           </DialogHeader>
           <form className="moderator-reject-form" onSubmit={submitReject}>
-            <textarea
-              className="pn-textarea"
+            <select
+              className="pn-select"
               value={rejectReason}
-              onChange={(event) => setRejectReason(event.target.value)}
-              placeholder="Например: не подходит качество видео, нарушены правила или нужны документы"
-              maxLength={1000}
+              onChange={(event) => {
+                setRejectReason(event.target.value)
+                if (event.target.value !== customRejectionReason) {
+                  setCustomRejectReason('')
+                }
+              }}
               required
-            />
+            >
+              <option value="" disabled>Выберите причину</option>
+              {(rejectTarget ? rejectionReasonOptionsByKind[rejectTarget.kind] : []).map((reason) => (
+                <option value={reason} key={reason}>{reason}</option>
+              ))}
+            </select>
+            {rejectReason === customRejectionReason && (
+              <textarea
+                className="pn-textarea"
+                value={customRejectReason}
+                onChange={(event) => setCustomRejectReason(event.target.value)}
+                placeholder="Опишите причину отклонения"
+                maxLength={1000}
+                required
+              />
+            )}
             <div className="editor-actions">
-              <button className="pn-button is-dark" disabled={isRejecting || !rejectReason.trim()}>
+              <button className="pn-button is-dark" disabled={isRejecting || !finalRejectReason}>
                 {isRejecting ? 'Сохраняем...' : 'Отклонить'}
               </button>
-              <button type="button" className="pn-button" onClick={() => setRejectTarget(null)}>
+              <button type="button" className="pn-button" onClick={() => {
+                setRejectTarget(null)
+                setRejectReason('')
+                setCustomRejectReason('')
+              }}>
                 Отмена
               </button>
             </div>
@@ -325,7 +394,7 @@ function TeacherDetails({ teacher }: { teacher: TeacherApplication }) {
             {teacher.documents.map((document) => (
               <a className="teacher-document-link" href={document.url} key={`${teacher.id}-${document.name}-${document.url}`} rel="noreferrer" target="_blank">
                 <span>{document.name || 'Документ'}</span>
-                <em>{formatFileSize(document.size)}{document.mime ? ` · ${document.mime}` : ''}</em>
+                <em>{formatFileSize(document.size)}</em>
               </a>
             ))}
           </div>
@@ -361,7 +430,7 @@ function openItem(item: QueueItem) {
   }
 
   if (item.kind === 'course') {
-    router.visit(`/courses/${item.id}`)
+    router.visit(`/courses/${item.id}?moderation=1`)
     return
   }
 

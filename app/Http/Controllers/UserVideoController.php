@@ -88,7 +88,7 @@ class UserVideoController extends Controller
         $user = $this->user($request);
 
         abort_if(
-            ! $user || ((int) $video->userId !== (int) $user->id && ! in_array($user->role, ['admin', 'moderator'], true)),
+            ! $user || ((int) $video->userId !== (int) $user->id && $user->role !== 'admin'),
             403,
             'Доступ запрещён.'
         );

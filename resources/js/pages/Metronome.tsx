@@ -92,7 +92,7 @@ export default function Metronome() {
             <strong>{bpm}</strong>
             <span>BPM</span>
             <div className="metronome-controls">
-              <button className="pn-button" onClick={() => updateBpm(bpm - 5)}><Minus size={16} /></button>
+              <button className="pn-button" onClick={() => updateBpm(bpm - 1)}><Minus size={16} /></button>
               <label className="metronome-bpm-field">
                 <input
                   value={bpmInput}
@@ -113,7 +113,7 @@ export default function Metronome() {
                 <span>BPM</span>
               </label>
               <button className="pn-button is-dark" onClick={toggle}>{running ? <Pause size={18} /> : <Play size={18} />}</button>
-              <button className="pn-button" onClick={() => updateBpm(bpm + 5)}><Plus size={16} /></button>
+              <button className="pn-button" onClick={() => updateBpm(bpm + 1)}><Plus size={16} /></button>
               <button className="pn-button" onClick={() => { updateBpm(96); setRunning(false) }}><RotateCcw size={16} /></button>
             </div>
           </div>

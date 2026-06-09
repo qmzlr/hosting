@@ -93,8 +93,13 @@ export default function LessonPage({
     <AppShell>
       <section className="lesson-layout pn-container">
         <div>
+          <div className="page-backbar lesson-backbar">
+            <button className="pn-button" type="button" onClick={() => router.visit(`/courses/${courseState.id}`)}>
+              ← Назад к курсу
+            </button>
+          </div>
           <div className="lesson-player-shell">
-            <video className="lesson-player" src={lesson.video} poster={lesson.image || courseState.img} controls />
+            <video className="lesson-player" src={lesson.video} poster={lesson.image || courseState.img} controls preload="metadata" />
             <div className="lesson-player-caption">
               <span className="pn-meta">Видео урока</span>
               <strong>{lesson.title}</strong>

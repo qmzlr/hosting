@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { GlowCard } from '@/components/ui/spotlight-card'
-
-gsap.registerPlugin(ScrollTrigger)
 
 const features: { label: string; detail: string }[] = [
   { label: 'Видеобиблиотека', detail: 'Сотни видеоуроков по всем инструментам с разбором техники' },
@@ -39,28 +35,22 @@ export default function Capabilities() {
   useEffect(() => {
     const section = sectionRef.current
     const video = videoRef.current
-    if (!section || !video || !isMobile) return
+    if (!section || !video) return
 
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        video,
-        { yPercent: 0, opacity: 0.72 },
-        {
-          yPercent: 34,
-          opacity: 0.2,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top top',
-            end: 'bottom bottom',
-            scrub: true,
-          },
-        },
-      )
-    }, section)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {})
+        } else {
+          video.pause()
+        }
+      },
+      { threshold: 0.05 },
+    )
 
-    return () => ctx.revert()
-  }, [isMobile])
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <section
@@ -69,30 +59,47 @@ export default function Capabilities() {
       className="capabilities-section"
       style={{
         position: 'relative',
-        overflow: 'hidden',
+        overflow: isMobile ? 'clip' : 'hidden',
         backgroundColor: '#0b0b0b',
         padding: 'clamp(100px, 12vw, 160px) clamp(20px, 4vw, 60px)',
       }}
     >
-      <video
-        ref={videoRef}
-        src="/videos/capabilities-keyboard.mp4"
-        autoPlay
-        muted
-        loop
-        playsInline
-        aria-label="Piano lesson background"
+      <div
+        className="capabilities-video-layer"
         style={{
-          position: 'absolute',
+          position: isMobile ? 'sticky' : 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: isMobile ? '100svh' : '100%',
-          objectFit: 'cover',
-          objectPosition: isMobile ? '50% 0%' : '50% 50%',
+          marginBottom: isMobile ? '-100svh' : undefined,
+          overflow: 'hidden',
+          pointerEvents: 'none',
           zIndex: 0,
         }}
-      />
+      >
+        <video
+          ref={videoRef}
+          src="/videos/capabilities-keyboard.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="Piano lesson background"
+          className="capabilities-video"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: isMobile ? '50% 50%' : '50% 50%',
+            opacity: isMobile ? 0.48 : 1,
+            transform: 'translateZ(0)',
+          }}
+        />
+      </div>
       <div
         style={{
           position: 'absolute',
@@ -272,21 +279,34 @@ function OrbitalBadge() {
 
     const textPaths = svg.querySelectorAll('textPath')
 
-    const tween1 = gsap.fromTo(
-      textPaths[0],
-      { attr: { startOffset: '0%' } },
-      { attr: { startOffset: '-100%' }, duration, ease: 'none', repeat: -1 }
-    )
+    let cleanup: (() => void) | undefined
+    let disposed = false
 
-    const tween2 = gsap.fromTo(
-      textPaths[1],
-      { attr: { startOffset: '100%' } },
-      { attr: { startOffset: '0%' }, duration, ease: 'none', repeat: -1 }
-    )
+    void (async () => {
+      const { default: gsap } = await import('gsap')
+      if (disposed) return
+
+      const tween1 = gsap.fromTo(
+        textPaths[0],
+        { attr: { startOffset: '0%' } },
+        { attr: { startOffset: '-100%' }, duration, ease: 'none', repeat: -1 }
+      )
+
+      const tween2 = gsap.fromTo(
+        textPaths[1],
+        { attr: { startOffset: '100%' } },
+        { attr: { startOffset: '0%' }, duration, ease: 'none', repeat: -1 }
+      )
+
+      cleanup = () => {
+        tween1.kill()
+        tween2.kill()
+      }
+    })()
 
     return () => {
-      tween1.kill()
-      tween2.kill()
+      disposed = true
+      cleanup?.()
     }
   }, [])
 

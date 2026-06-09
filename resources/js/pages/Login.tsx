@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react'
 import { useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { postJson } from '@/lib/http'
+import { isValidEmail } from '@/lib/validation'
 
 export default function Login() {
   const [message, setMessage] = useState('')
@@ -23,6 +24,11 @@ export default function Login() {
           className="auth-form"
           onSubmit={async (e) => {
             e.preventDefault()
+            if (!isValidEmail(email)) {
+              setMessage('Введите корректный email.')
+              return
+            }
+
             setIsSubmitting(true)
             setMessage('')
 

@@ -1,9 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { router } from '@inertiajs/react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
 
 const tags = [
   ['Видеоуроки', '/courses'],
@@ -23,7 +19,18 @@ export default function Philosophy() {
     if (!section || !text || !tagsEl) return
     if (window.matchMedia('(max-width: 700px)').matches) return
 
-    const ctx = gsap.context(() => {
+    let ctx: { revert: () => void } | undefined
+    let disposed = false
+
+    void (async () => {
+      const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+        import('gsap'),
+        import('gsap/ScrollTrigger'),
+      ])
+      if (disposed) return
+
+      gsap.registerPlugin(ScrollTrigger)
+      ctx = gsap.context(() => {
       gsap.from(text, {
         y: 60,
         opacity: 0,
@@ -48,9 +55,13 @@ export default function Philosophy() {
           once: true,
         },
       })
-    }, section)
+      }, section)
+    })()
 
-    return () => ctx.revert()
+    return () => {
+      disposed = true
+      ctx?.revert()
+    }
   }, [])
 
   return (

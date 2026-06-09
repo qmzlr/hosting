@@ -95,6 +95,7 @@ export interface AdminUser {
   rejectionReason?: string | null
   isBanned?: boolean
   banReason?: string | null
+  mustChangeEmail?: boolean
   instrument: string | null
   level: string | null
   instrumentIds: string[]

@@ -122,8 +122,18 @@ class PlatformCommentController extends Controller
                 ->where('userId', $user->id)
                 ->where('course_id', $course->id)
                 ->exists();
+            $lessonIds = $course->lessonList->pluck('id');
+            $completedCount = $lessonIds->isEmpty()
+                ? 0
+                : LessonProgress::query()
+                    ->where('userId', $user->id)
+                    ->where('completed', true)
+                    ->whereIn('lesson_id', $lessonIds)
+                    ->distinct()
+                    ->count('lesson_id');
 
             abort_if(! $isEnrolled, 403, 'Комментарий доступен после записи на курс.');
+            abort_if($lessonIds->isEmpty() || $completedCount < $lessonIds->count(), 403, 'Комментарий доступен после прохождения всего курса.');
 
             return ['label' => $course->title, 'code' => $course->code, 'course_id' => $course->id];
         }

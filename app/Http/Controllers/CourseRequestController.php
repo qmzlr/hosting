@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Course;
 use App\Models\CourseRequest;
 use App\Models\Instrument;
+use App\Support\EmailRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -15,12 +16,12 @@ class CourseRequestController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:320'],
+            'email' => ['required', ...EmailRules::base()],
             'instrument' => ['required', 'string', 'max:128'],
             'level' => ['required', 'string', 'max:64'],
             'goal' => ['required', 'string', 'max:255'],
             'privacyConsent' => ['accepted'],
-        ]);
+        ], EmailRules::messages());
 
         $courseRequest = CourseRequest::query()->create([
             ...collect($validated)->except('privacyConsent')->all(),

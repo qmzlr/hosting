@@ -6,7 +6,7 @@ export function CourseCard({ course }: { course: Course }) {
 
   return (
     <article className="pn-card course-catalog-card">
-      <img className="pn-card-media" src={course.img} alt={course.title} />
+      <img className="pn-card-media" src={course.img} alt={course.title} loading="lazy" decoding="async" />
       <div className="pn-card-body">
         <div className="pn-meta">
           {course.instrument} · {course.level}

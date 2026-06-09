@@ -8,6 +8,8 @@ use App\Models\Lesson;
 use App\Models\PlatformComment;
 use App\Models\User;
 use App\Models\UserVideo;
+use App\Support\EmailRules;
+use App\Support\UserAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,6 +21,7 @@ class AdminController extends Controller
     public function storeUser(Request $request): JsonResponse
     {
         $validated = $this->validatedUser($request);
+        $this->ensureCanAssignRole($this->currentUser($request), null, $validated['role']);
         $instrumentIds = $validated['instrumentIds'] ?? [];
         unset($validated['instrumentIds']);
         $validated = $this->normalizeTeacherStatus($validated);
@@ -31,6 +34,7 @@ class AdminController extends Controller
 
         $user = User::query()->create([
             ...$validated,
+            'must_change_email' => true,
             'lastSignInAt' => now(),
         ]);
 
@@ -43,6 +47,7 @@ class AdminController extends Controller
     {
         $user = User::query()->findOrFail($id);
         $validated = $this->validatedUser($request, $user);
+        $this->ensureCanAssignRole($this->currentUser($request), $user, $validated['role']);
         $instrumentIds = $validated['instrumentIds'] ?? null;
         unset($validated['instrumentIds']);
         $validated = $this->normalizeTeacherStatus($validated);
@@ -65,8 +70,11 @@ class AdminController extends Controller
     public function destroyUser(Request $request, int $id): JsonResponse
     {
         abort_if((int) $request->session()->get('user_id') === $id, 422, 'Нельзя удалить текущего администратора.');
+        $user = User::query()->findOrFail($id);
+        abort_if(UserAccess::isSuperAdmin($user), 422, 'Нельзя удалить главного администратора.');
+        abort_if($user->role === 'admin' && ! UserAccess::isSuperAdmin($this->currentUser($request)), 403, 'Только главный администратор может управлять администраторами.');
 
-        User::query()->findOrFail($id)->delete();
+        $user->delete();
 
         return response()->json(['success' => true]);
     }
@@ -81,6 +89,8 @@ class AdminController extends Controller
         ]);
 
         $user = User::query()->findOrFail($id);
+        abort_if(UserAccess::isSuperAdmin($user), 422, 'Нельзя заблокировать главного администратора.');
+        abort_if($user->role === 'admin' && ! UserAccess::isSuperAdmin($this->currentUser($request)), 403, 'Только главный администратор может управлять администраторами.');
         $reason = trim((string) ($validated['reason'] ?? ''));
 
         $user->update([
@@ -183,8 +193,7 @@ class AdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'nullable',
-                'email',
-                'max:320',
+                ...EmailRules::base(),
                 Rule::unique('users', 'email')->ignore($user?->id),
             ],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:6'],
@@ -194,7 +203,7 @@ class AdminController extends Controller
             'avatar' => ['nullable', 'string', 'max:1024'],
             'instrumentIds' => ['sometimes', 'array'],
             'instrumentIds.*' => ['string', Rule::exists('instruments', 'slug')],
-        ]);
+        ], EmailRules::messages());
     }
 
     private function validatedInstrument(Request $request, ?int $ignoreId = null): array
@@ -236,12 +245,34 @@ class AdminController extends Controller
             'teacherStatus' => $user->teacher_status,
             'isBanned' => $user->is_banned,
             'banReason' => $user->ban_reason,
+            'mustChangeEmail' => $user->must_change_email,
             'instrument' => $user->instrument,
             'level' => $user->level,
             'instrumentIds' => $user->instruments->pluck('slug')->values()->all(),
             'createdAt' => $user->createdAt?->toJSON(),
             'lastSignInAt' => $user->lastSignInAt?->toJSON(),
         ];
+    }
+
+    private function currentUser(Request $request): ?User
+    {
+        $userId = $request->session()->get('user_id');
+
+        return $userId ? User::query()->find($userId) : null;
+    }
+
+    private function ensureCanAssignRole(?User $actor, ?User $target, string $nextRole): void
+    {
+        $isSuperAdmin = UserAccess::isSuperAdmin($actor);
+
+        abort_if($nextRole === 'admin' && ! $isSuperAdmin, 403, 'Только главный администратор может выдавать роль администратора.');
+
+        if (! $target) {
+            return;
+        }
+
+        abort_if($target->role === 'admin' && ! $isSuperAdmin, 403, 'Только главный администратор может управлять администраторами.');
+        abort_if(UserAccess::isSuperAdmin($target) && $nextRole !== 'admin', 422, 'Нельзя изменить роль главного администратора.');
     }
 
     private function uploadMessages(): array

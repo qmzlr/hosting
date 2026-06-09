@@ -10,6 +10,7 @@ export type AppUser = {
   avatar: string | null;
   role: "user" | "admin" | "moderator" | "teacher";
   teacher_status?: "ожидает" | "одобрен" | "отклонён" | null;
+  must_change_email?: boolean;
   instrument?: string | null;
   level?: string | null;
 };

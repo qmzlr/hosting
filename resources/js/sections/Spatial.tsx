@@ -1,8 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
 
 export default function Spatial() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -11,30 +7,31 @@ export default function Spatial() {
   const [videoReady, setVideoReady] = useState(false)
 
   useEffect(() => {
-    const section = sectionRef.current
-    const content = contentRef.current
-    if (!section || !content) return
-    if (window.matchMedia('(max-width: 700px)').matches) return
-
-    const ctx = gsap.context(() => {
-      gsap.from(content.children, {
-        y: 40,
-        opacity: 0,
-        duration: 1.1,
-        stagger: 0.18,
-        ease: 'power3.out',
-        delay: 0.4,
-      })
-    }, section)
-
-    return () => ctx.revert()
-  }, [])
-
-  useEffect(() => {
     const video = sectionRef.current?.querySelector<HTMLVideoElement>('video')
     if (!video) return
 
     video.play().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const section = sectionRef.current
+    const video = section?.querySelector<HTMLVideoElement>('video')
+    if (!section || !video) return
+    if (!window.matchMedia('(max-width: 700px)').matches) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {})
+        } else {
+          video.pause()
+        }
+      },
+      { threshold: 0.08 },
+    )
+
+    observer.observe(section)
+    return () => observer.disconnect()
   }, [])
 
   return (
@@ -57,6 +54,7 @@ export default function Spatial() {
         muted
         loop
         playsInline
+        preload="auto"
         onCanPlay={(event) => {
           setVideoReady(true)
           event.currentTarget.play().catch(() => {})

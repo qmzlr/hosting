@@ -8,6 +8,7 @@ import type { CompletedLesson, Course, Instrument, UserVideo } from '@/data/cour
 import { useAuth } from '@/hooks/useAuth'
 import { deleteJson, patchJson, postJson, uploadFormData, type UploadProgressState } from '@/lib/http'
 import { imageAccept, validateImageFile } from '@/lib/uploads'
+import { isValidEmail } from '@/lib/validation'
 
 const profileCoursePageSize = 4
 
@@ -63,6 +64,7 @@ export default function Dashboard({
   const normalizedEmail = email.trim().toLowerCase()
   const isEmailChanged = normalizedEmail !== normalizedProfileEmail
   const isPasswordChangeRequested = currentPassword.length > 0 || newPassword.length > 0 || passwordConfirmation.length > 0
+  const mustChangeEmail = Boolean(user?.must_change_email)
 
   const toggleInstrument = (id: string) => {
     setSelectedIds((current) => {
@@ -116,6 +118,21 @@ export default function Dashboard({
     try {
       if (isPasswordChangeRequested && newPassword !== passwordConfirmation) {
         setMessage('Новые пароли не совпадают.')
+        return
+      }
+
+      if (mustChangeEmail && !isEmailChanged) {
+        setMessage('Смените email, выданный администратором.')
+        return
+      }
+
+      if (isEmailChanged && !isValidEmail(email)) {
+        setMessage('Введите корректный email.')
+        return
+      }
+
+      if (mustChangeEmail && selectedIds.size === 0) {
+        setMessage('Выберите хотя бы один интересующий инструмент.')
         return
       }
 
@@ -197,6 +214,66 @@ export default function Dashboard({
         text="Профиль, активные курсы, прогресс, рекомендации и быстрые действия в одном рабочем пространстве."
         image="/images/work-02.jpg"
       />
+      {mustChangeEmail ? (
+        <section className="pn-section required-profile-page">
+          <div className="pn-container required-profile-layout">
+            <div className="pn-card pn-card-body required-profile-card">
+              <div className="pn-meta">Первый вход</div>
+              <h2>Смените почту</h2>
+              <p className="pn-text">Этот аккаунт создан администратором. Чтобы продолжить работу с платформой, укажите свой email и выберите интересующие инструменты.</p>
+              <form className="profile-form required-profile-form" onSubmit={saveProfile}>
+                <FieldLabel label="Новый email">
+                  <input
+                    className="pn-input"
+                    type="email"
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value)
+                      setEmailVerificationCode('')
+                      setIsEmailCodeSent(false)
+                    }}
+                    required
+                  />
+                </FieldLabel>
+                {isEmailChanged && isEmailCodeSent && (
+                  <FieldLabel label="Код подтверждения email">
+                    <input
+                      className="pn-input"
+                      inputMode="numeric"
+                      maxLength={6}
+                      pattern="[0-9]{6}"
+                      value={emailVerificationCode}
+                      onChange={(event) => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Код из письма"
+                      required
+                    />
+                    <em>Код отправлен на {email}. Введите его, чтобы сохранить новый email.</em>
+                  </FieldLabel>
+                )}
+                <FieldLabel label="Интересующие инструменты">
+                  <div className="dashboard-chip-list profile-instrument-picker">
+                    {instruments.map((instrument) => (
+                      <label className={`dashboard-chip ${selectedIds.has(instrument.id) ? 'is-selected' : ''}`} key={instrument.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(instrument.id)}
+                          onChange={() => toggleInstrument(instrument.id)}
+                        />
+                        {instrument.name}
+                      </label>
+                    ))}
+                  </div>
+                </FieldLabel>
+                <button className="pn-button is-dark" disabled={isSaving || (isEmailChanged && isEmailCodeSent && emailVerificationCode.length !== 6)}>
+                  {isSaving ? 'Сохраняем...' : isEmailChanged && !isEmailCodeSent ? 'Получить код' : 'Сохранить и продолжить'}
+                </button>
+                <button type="button" className="pn-button" onClick={logout}>Выйти</button>
+                {message && <p className={`pn-message ${message.includes('обновл') || message.includes('отправлен') ? 'is-success' : 'is-error'}`}>{message}</p>}
+              </form>
+            </div>
+          </div>
+        </section>
+      ) : (
       <section className="pn-section dashboard-page">
         <div className="pn-container dashboard-layout">
           <aside className="pn-card dashboard-profile-card">
@@ -318,6 +395,7 @@ export default function Dashboard({
           </div>
         </div>
       </section>
+      )}
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
         <DialogContent className="profile-dialog">
           <DialogHeader>

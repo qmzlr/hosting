@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { Menu, X } from 'lucide-react'
 
 interface HeaderProps {
-  scrollRef?: React.MutableRefObject<{ y: number; speed: number }>
   forceLight?: boolean
 }
 
@@ -19,10 +18,11 @@ const navItems = [
 export default function Header({ forceLight = false }: HeaderProps) {
   const [overHeroRaw, setOverHeroRaw] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
-  const rafRef = useRef<number>(0)
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
     const check = () => {
+      rafRef.current = null
       const firstSection = document.querySelector('main > section:first-child')
       const isHeroSection =
         firstSection?.classList.contains('spatial-hero') ||
@@ -30,10 +30,24 @@ export default function Header({ forceLight = false }: HeaderProps) {
       const firstSectionBottom = firstSection?.getBoundingClientRect().bottom ?? 0
 
       setOverHeroRaw(Boolean(isHeroSection && firstSectionBottom > 78))
+    }
+
+    const scheduleCheck = () => {
+      if (rafRef.current !== null) return
       rafRef.current = requestAnimationFrame(check)
     }
-    rafRef.current = requestAnimationFrame(check)
-    return () => cancelAnimationFrame(rafRef.current)
+
+    scheduleCheck()
+    window.addEventListener('scroll', scheduleCheck, { passive: true })
+    window.addEventListener('resize', scheduleCheck)
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+      window.removeEventListener('scroll', scheduleCheck)
+      window.removeEventListener('resize', scheduleCheck)
+    }
   }, [])
 
   useEffect(() => {
@@ -66,7 +80,10 @@ export default function Header({ forceLight = false }: HeaderProps) {
 
   const overHero = overHeroRaw && !forceLight
   const { user, isAuthenticated } = useAuth({ redirectPath: '/' })
-  const visibleNavItems = [
+  const mustChangeEmail = Boolean(user?.must_change_email)
+  const visibleNavItems = mustChangeEmail ? [
+    { label: 'Профиль', target: '/profile' },
+  ] : [
     ...navItems,
     ...(user?.role === 'teacher' ? [{ label: 'Учителю', target: '/teacher' }] : []),
     ...(user?.role === 'moderator' ? [{ label: 'Модерация', target: '/moderator' }] : []),

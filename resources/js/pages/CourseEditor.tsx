@@ -31,6 +31,7 @@ const emptyCourse: Course = {
 
 type Workspace = 'admin' | 'teacher'
 const categories = ['Основы', 'Ритм', 'Техника', 'Песни', 'Теория']
+const maxCourseLessons = 10
 
 export default function CourseEditor({
   course,
@@ -269,7 +270,7 @@ export default function CourseEditor({
             <button type="button" className="pn-button" onClick={leaveEditor}>Назад</button>
           </div>
           <SectionTitle title="Данные курса" aside="Форма" />
-          <FieldLabel label="Код курса для ссылки">
+          <FieldLabel label="Slug курса для ссылки">
             <input
               className="pn-input"
               value={form.id}
@@ -336,7 +337,11 @@ export default function CourseEditor({
                 <strong>{lesson.title || 'Новый урок'}</strong>
               </button>
             ))}
-            <button type="button" className="pn-button" onClick={() => {
+            <button type="button" className="pn-button" disabled={lessons.length >= maxCourseLessons} onClick={() => {
+              if (lessons.length >= maxCourseLessons) {
+                toast.error('В курсе может быть не больше 10 уроков.')
+                return
+              }
               const lesson = newLesson()
               setLessons((items) => [...items, lesson])
               setSelectedLessonId(lesson.id)

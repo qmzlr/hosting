@@ -29,6 +29,8 @@ export default function CourseDetail({
   const fallbackRelated = relatedCourses.slice(0, 3)
   const firstLesson = course.lessonList[0]
   const lessonCountLabel = formatLessonCount(course.lessonList.length)
+  const canLeaveCourseComment = canComment && course.progress >= 100
+  const isModerationPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('moderation') === '1'
   const startCourse = async () => {
     if (!isAuthenticated) {
       router.visit('/login')
@@ -90,6 +92,13 @@ export default function CourseDetail({
     <AppShell>
       <PageHero eyebrow={`${course.instrument} · ${course.level}`} title={course.title} text={course.tagline} image={course.img} />
       <section className="pn-section">
+        {isModerationPreview && (
+          <div className="pn-container course-moderation-back">
+            <button className="pn-button" type="button" onClick={() => router.visit('/moderator')}>
+              Вернуться в модераторку
+            </button>
+          </div>
+        )}
         <div className="course-mobile-start">
           <div className="course-aside">
             {progressCard}
@@ -138,7 +147,7 @@ export default function CourseDetail({
                 ))}
                 {commentItems.length === 0 && <p className="pn-text comments-empty">Пока нет одобренных комментариев.</p>}
               </div>
-              {canComment ? (
+              {canLeaveCourseComment ? (
                 <form className="comment-form" onSubmit={submitComment}>
                   <textarea
                     className="pn-textarea"
@@ -152,7 +161,9 @@ export default function CourseDetail({
                   </button>
                 </form>
               ) : (
-                <p className="pn-text course-comment-note">Комментарии доступны ученикам, которые записались на курс.</p>
+                <p className="pn-text course-comment-note">
+                  Комментарий к курсу можно оставить после прохождения всех уроков.
+                </p>
               )}
               {commentMessage && <p className={`pn-message is-${commentMessageTone}`}>{commentMessage}</p>}
             </section>

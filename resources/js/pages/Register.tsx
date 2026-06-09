@@ -5,6 +5,7 @@ import { MediaAttachmentPreview } from '@/components/MediaAttachmentPreview'
 import type { Instrument } from '@/data/courses'
 import { postFormData, postJson } from '@/lib/http'
 import { documentAccept, validateDocumentFile } from '@/lib/uploads'
+import { isValidEmail } from '@/lib/validation'
 
 const urlPattern = /(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})(?:\S*)/i
 const namePattern = /^[\p{L}\s-]+$/u
@@ -59,7 +60,7 @@ export default function Register({ instruments }: { instruments: Instrument[] })
 
     if (!trimmedEmail) {
       nextErrors.email = 'Введите email.'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    } else if (!isValidEmail(trimmedEmail)) {
       nextErrors.email = 'Введите корректный email.'
     }
 

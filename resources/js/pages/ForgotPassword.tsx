@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react'
 import { useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { postJson } from '@/lib/http'
+import { isValidEmail } from '@/lib/validation'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -14,6 +15,12 @@ export default function ForgotPassword() {
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('success')
 
   const handleSendCode = async () => {
+    if (!isValidEmail(email)) {
+      setMessageTone('error')
+      setMessage('Введите корректный email.')
+      return
+    }
+
     setIsSubmitting(true)
     setMessage('')
 

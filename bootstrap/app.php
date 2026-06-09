@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureSessionAuthenticated;
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\EnsureEmailChangeCompleted;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             HandleInertiaRequests::class,
+            EnsureEmailChangeCompleted::class,
         ]);
         $middleware->alias([
             'session.auth' => EnsureSessionAuthenticated::class,

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\UserVideo;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class PlatformSeeder extends Seeder
 {
@@ -53,6 +54,14 @@ class PlatformSeeder extends Seeder
         }
 
         $instrumentIdsByName = Instrument::query()->pluck('id', 'name');
+        $teacherDocumentsByEmail = [
+            'anton.teacher@example.com' => 'Сертификат Антона Лебедева.pdf',
+            'maria.teacher@example.com' => 'Диплом Марии Соколовой.pdf',
+            'denis.teacher@example.com' => 'Подтверждение квалификации Дениса Орлова.pdf',
+            'elena.teacher@example.com' => 'Вокальный сертификат Елены Мироновой.pdf',
+            'kira.teacher@example.com' => 'Документ преподавателя Киры Волковой.pdf',
+            'ilya.teacher@example.com' => 'Методический диплом Ильи Ветрова.pdf',
+        ];
         $teachersByName = collect([
             ['name' => 'Антон Лебедев', 'email' => 'anton.teacher@example.com', 'instrument' => 'Гитара'],
             ['name' => 'Мария Соколова', 'email' => 'maria.teacher@example.com', 'instrument' => 'Фортепиано'],
@@ -60,7 +69,13 @@ class PlatformSeeder extends Seeder
             ['name' => 'Елена Миронова', 'email' => 'elena.teacher@example.com', 'instrument' => 'Вокал'],
             ['name' => 'Кира Волкова', 'email' => 'kira.teacher@example.com', 'instrument' => 'Укулеле'],
             ['name' => 'Илья Ветров', 'email' => 'ilya.teacher@example.com', 'instrument' => 'Любой инструмент'],
-        ])->mapWithKeys(function (array $teacher) use ($instrumentIdsByName) {
+        ])->mapWithKeys(function (array $teacher) use ($instrumentIdsByName, $teacherDocumentsByEmail) {
+            $documentName = $teacherDocumentsByEmail[$teacher['email']];
+            $documentPath = 'teacher-documents/demo-'.str_replace(['.teacher@example.com', '@example.com'], '', $teacher['email']).'.pdf';
+            $documentContent = "%PDF-1.1\n% PlayNote teacher document placeholder\n";
+
+            Storage::disk('public')->put($documentPath, $documentContent);
+
             $user = User::query()->updateOrCreate(
                 ['email' => $teacher['email']],
                 [
@@ -68,6 +83,12 @@ class PlatformSeeder extends Seeder
                     'password' => Hash::make('teacher123'),
                     'role' => 'teacher',
                     'teacher_status' => 'одобрен',
+                    'teacher_documents' => [[
+                        'path' => $documentPath,
+                        'name' => $documentName,
+                        'mime' => 'application/pdf',
+                        'size' => strlen($documentContent),
+                    ]],
                     'instrument' => $teacher['instrument'],
                     'is_banned' => false,
                     'lastSignInAt' => now(),

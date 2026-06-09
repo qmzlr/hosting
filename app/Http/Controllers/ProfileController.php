@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Instrument;
 use App\Models\User;
 use App\Models\EmailVerificationCode;
+use App\Support\EmailRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -23,11 +24,10 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'email' => [
                 'required',
-                'email',
-                'max:320',
+                ...EmailRules::base(),
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-        ]);
+        ], EmailRules::messages());
 
         $email = $this->normalizeEmail($validated['email']);
 
@@ -60,8 +60,7 @@ class ProfileController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'nullable',
-                'email',
-                'max:320',
+                ...EmailRules::base(),
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
             'avatar' => ['nullable', 'string', 'max:1024'],
@@ -71,7 +70,14 @@ class ProfileController extends Controller
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
             'instrumentIds' => ['sometimes', 'array'],
             'instrumentIds.*' => ['string', 'exists:instruments,slug'],
-        ]);
+        ], EmailRules::messages());
+        $requiresEmailChange = (bool) $user->must_change_email;
+
+        if ($requiresEmailChange && empty($validated['instrumentIds'])) {
+            throw ValidationException::withMessages([
+                'instrumentIds' => 'Выберите хотя бы один интересующий инструмент.',
+            ]);
+        }
 
         $instrumentIds = $validated['instrumentIds'] ?? null;
         unset($validated['instrumentIds']);
@@ -79,6 +85,11 @@ class ProfileController extends Controller
         unset($validated['emailVerificationCode']);
         $currentPassword = $validated['currentPassword'] ?? null;
         unset($validated['currentPassword']);
+
+        if ($requiresEmailChange) {
+            $validated['name'] = $user->name;
+            unset($validated['avatar'], $validated['level'], $validated['password']);
+        }
 
         if (array_key_exists('email', $validated)) {
             $validated['email'] = $this->normalizeEmail((string) $validated['email']);
@@ -93,6 +104,16 @@ class ProfileController extends Controller
 
                 $this->verifyCode($validated['email'], 'email_change', $emailVerificationCode);
             }
+
+            if ($requiresEmailChange && ! $emailChanged) {
+                throw ValidationException::withMessages([
+                    'email' => 'Смените email, выданный администратором.',
+                ]);
+            }
+        } elseif ($requiresEmailChange) {
+            throw ValidationException::withMessages([
+                'email' => 'Смените email, выданный администратором.',
+            ]);
         }
 
         if (! empty($validated['password'])) {
@@ -114,6 +135,10 @@ class ProfileController extends Controller
                 ->first();
 
             $validated['instrument'] = $firstInstrument?->name;
+        }
+
+        if ($requiresEmailChange) {
+            $validated['must_change_email'] = false;
         }
 
         $user->update($validated);

@@ -27,7 +27,7 @@ export function PageHero({
 }) {
   return (
     <section className="pn-page-hero">
-      {image && <img src={image} alt="" />}
+      {image && <img src={image} alt="" loading="eager" decoding="async" fetchPriority="high" />}
       <div className="pn-page-hero__overlay" />
       <div className="pn-page-hero__content">
         <p>{eyebrow}</p>

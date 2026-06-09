@@ -28,6 +28,7 @@ class User extends Model
         'teacher_documents',
         'is_banned',
         'ban_reason',
+        'must_change_email',
         'instrument',
         'level',
         'lastSignInAt',
@@ -48,6 +49,7 @@ class User extends Model
             'lastSignInAt' => 'datetime',
             'teacher_documents' => 'array',
             'is_banned' => 'boolean',
+            'must_change_email' => 'boolean',
         ];
     }
 

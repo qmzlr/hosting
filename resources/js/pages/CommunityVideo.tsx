@@ -23,7 +23,7 @@ export default function CommunityVideo({
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('success')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const canDelete = user && (String(user.id) === String(video.ownerId) || ['admin', 'moderator'].includes(user.role))
+  const canDelete = user && (String(user.id) === String(video.ownerId) || user.role === 'admin')
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -61,7 +61,7 @@ export default function CommunityVideo({
 
     try {
       await deleteJson<{ success: boolean }>(`/api/videos/${numericId(video.id)}`)
-      router.visit(user?.role === 'admin' || user?.role === 'moderator' ? '/moderator' : '/profile')
+      router.visit(user?.role === 'admin' ? '/moderator' : '/profile')
     } catch (error) {
       setMessageTone('error')
       setMessage(error instanceof Error ? error.message : 'Не удалось удалить видео.')
@@ -73,15 +73,20 @@ export default function CommunityVideo({
     <AppShell>
       <PageHero eyebrow={`${video.instrument} · ${video.author}`} title={video.title} text={video.description || 'Видео сообщества PlayNote'} image={video.image} />
       <section className="pn-section community-video-page">
+        <div className="pn-container page-backbar">
+          <button className="pn-button" type="button" onClick={() => router.visit(isModerationPreview ? '/moderator' : '/community')}>
+            ← Назад
+          </button>
+        </div>
         <div className="pn-container community-video-layout">
           <article className="pn-card pn-card-body community-video-player-card">
             {video.video ? (
-              <video className="selected-video-player" src={video.video} poster={video.image} controls />
+              <video className="selected-video-player" src={video.video} poster={video.image} controls preload="metadata" />
             ) : (
-              <img src={video.image} alt={video.title} />
+              <img src={video.image} alt={video.title} loading="lazy" decoding="async" />
             )}
             <div className="community-video-author">
-              {video.authorAvatar ? <img src={video.authorAvatar} alt="" /> : <span>{video.author.slice(0, 1)}</span>}
+              {video.authorAvatar ? <img src={video.authorAvatar} alt="" loading="lazy" decoding="async" /> : <span>{video.author.slice(0, 1)}</span>}
               <div>
                 <div className="pn-meta">Автор</div>
                 <strong>{video.author}</strong>

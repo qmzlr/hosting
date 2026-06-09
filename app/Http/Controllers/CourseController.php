@@ -14,6 +14,8 @@ use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
 {
+    private const MAX_LESSONS = 10;
+
     public function index(Request $request): JsonResponse
     {
         $userId = $request->session()->get('user_id');
@@ -122,7 +124,7 @@ class CourseController extends Controller
             'features' => ['sometimes', 'array'],
             'outcomes' => ['required', 'array'],
             'lessons' => ['required', 'string', 'max:128'],
-            'lessonCount' => ['required', 'integer', 'min:0'],
+            'lessonCount' => ['required', 'integer', 'min:0', 'max:'.self::MAX_LESSONS],
             'level' => ['required', 'string', 'max:128'],
             'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
             'video' => ['required', 'string', 'max:255'],
@@ -134,7 +136,7 @@ class CourseController extends Controller
                     ->where('teacher_status', 'одобрен')
                     ->where('is_banned', false)),
             ],
-            'lessonList' => ['sometimes', 'array'],
+            'lessonList' => ['sometimes', 'array', 'max:'.self::MAX_LESSONS],
             'lessonList.*.id' => ['required_with:lessonList', 'string', 'max:96'],
             'lessonList.*.title' => ['required_with:lessonList', 'string', 'max:255'],
             'lessonList.*.description' => ['required_with:lessonList', 'string'],

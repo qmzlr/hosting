@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\EmailVerificationCode;
 use App\Models\Instrument;
 use App\Models\User;
+use App\Support\EmailRules;
+use App\Support\UserAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,9 +20,9 @@ class LocalAuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:320'],
+            'email' => ['required', ...EmailRules::base()],
             'password' => ['required', 'string'],
-        ]);
+        ], EmailRules::messages());
 
         $user = User::query()->where('email', $validated['email'])->first();
 
@@ -30,7 +32,7 @@ class LocalAuthController extends Controller
             ]);
         }
 
-        abort_if($user->is_banned, 403, 'Аккаунт заблокирован.');
+        abort_if($user->is_banned, 403, UserAccess::banMessage($user));
 
         $user->update(['lastSignInAt' => now()]);
         $request->session()->put('user_id', $user->id);
@@ -59,7 +61,7 @@ class LocalAuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'regex:/^[\pL\s-]+$/u', 'not_regex:/(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i'],
-            'email' => ['required', 'email', 'max:320', 'unique:users,email'],
+            'email' => ['required', ...EmailRules::base(), 'unique:users,email'],
             'emailVerificationCode' => ['required', 'string', 'size:6'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'instrument' => ['nullable', 'string', 'max:128'],
@@ -70,6 +72,7 @@ class LocalAuthController extends Controller
             'teacherDocuments' => ['sometimes', 'array', 'max:8'],
             'teacherDocuments.*' => ['file', 'max:8192', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
         ], [
+            ...EmailRules::messages(),
             'name.not_regex' => 'Ссылки в имени не допускаются.',
             'name.regex' => 'Используйте только буквы, пробел и дефис.',
             'instrumentIds.required' => 'Выберите хотя бы один инструмент.',
@@ -122,8 +125,9 @@ class LocalAuthController extends Controller
     public function sendRegistrationCode(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:320', 'unique:users,email'],
+            'email' => ['required', ...EmailRules::base(), 'unique:users,email'],
         ], [
+            ...EmailRules::messages(),
             'email.unique' => 'Пользователь с таким email уже зарегистрирован.',
         ]);
 
@@ -143,8 +147,9 @@ class LocalAuthController extends Controller
     public function sendPasswordResetCode(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:320', 'exists:users,email'],
+            'email' => ['required', ...EmailRules::base(), 'exists:users,email'],
         ], [
+            ...EmailRules::messages(),
             'email.exists' => 'Пользователь с таким email не найден.',
         ]);
 
@@ -164,10 +169,10 @@ class LocalAuthController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:320', 'exists:users,email'],
+            'email' => ['required', ...EmailRules::base(), 'exists:users,email'],
             'code' => ['required', 'string', 'size:6'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
-        ]);
+        ], EmailRules::messages());
 
         $email = $this->normalizeEmail($validated['email']);
         $this->verifyCode($email, 'password_reset', $validated['code']);
